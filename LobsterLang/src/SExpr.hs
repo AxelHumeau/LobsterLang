@@ -1,7 +1,11 @@
 data SExpr = Integer Int
             | Symbol String
             | List [SExpr]
-            deriving Show
+
+instance Show SExpr where
+    show (Integer i) = show i
+    show (Symbol s) = show s
+    show (List l) = filter (/= '\"') ("( " ++ foldr (++) "" ((++ " ") <$> (show <$> l)) ++ ")")
 
 getSymbol :: SExpr -> Maybe String
 getSymbol (Integer _) = Nothing
@@ -17,3 +21,6 @@ getList :: SExpr -> Maybe [SExpr]
 getList (Integer _) = Nothing
 getList (List l) = Just l
 getList (Symbol _) = Nothing
+
+printTree :: SExpr -> Maybe String
+printTree s = Just (show s)
