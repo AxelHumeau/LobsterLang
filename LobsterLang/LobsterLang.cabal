@@ -25,7 +25,9 @@ source-repository head
 
 library
   exposed-modules:
+      AST
       Lib
+      SExpr
   other-modules:
       Paths_LobsterLang
   autogen-modules:

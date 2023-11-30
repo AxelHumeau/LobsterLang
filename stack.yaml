@@ -10,15 +10,15 @@
 #
 # resolver: lts-21.13
 # resolver: nightly-2023-09-24
-# resolver: ghc-9.6.2
+resolver: ghc-9.8.1
 #
 # The location of a snapshot can be provided as a file or url. Stack assumes
 # a snapshot provided as a file might change, whereas a url resource does not.
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2023-01-01.yaml
-resolver:
-  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/22.yaml
+# resolver:
+#   url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/22.yaml
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -29,7 +29,8 @@ resolver:
 #   subdirs:
 #   - auto-update
 #   - wai
-packages: []
+packages:
+  - LobsterLang
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
@@ -48,7 +49,7 @@ packages: []
 # extra-package-dbs: []
 
 # Control whether we use the GHC we find on the path
-# system-ghc: true
+system-ghc: true
 #
 # Require a specific version of Stack, using version ranges
 # require-stack-version: -any # Default

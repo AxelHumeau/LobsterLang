@@ -1,3 +1,5 @@
+module SExpr (SExpr(..), getSymbol, getInteger, getList, printTree) where
+
 data SExpr = Integer Int
             | Symbol String
             | List [SExpr]
