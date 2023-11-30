@@ -30,4 +30,19 @@ jobs:
         with:
           files: "glados"
           fail: true
+  run_tests:
+    needs: check_compilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8.1'
+          enable-stack: true
+      - name: Run tests
+        run: make tests_run
+        timeout-minutes: 5
+
 
