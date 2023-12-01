@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  repository_dispatch:
+  push:
+    branches:
+    - 'main'
+
+permissions:
+  contents: write
+  checks: write
+
+env:
+  MIRROR_URL: git@github.com:EpitechPromo2026/B-FUN-500-PAR-5-2-glados-axel.humeau.git
+
+jobs:
+  push_to_mirror:
+    if: success()
+    runs-on: ubuntu-latest
+    name: push_to_mirror
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url:
+            ${{ env.MIRROR_URL }}
+          ssh_private_key:
+            ${{ secrets.GIT_SSH_PRIVATE_KEY }}
+  deploy_documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8.1'
+          enable-stack: true
+      - name: Create documentation
+        run: haddock -ohtml --html LobsterLang/src/*
+      - name: Deploy to GitHub Pages
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: gh-pages
+          build_dir: html
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
