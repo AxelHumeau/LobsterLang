@@ -3,8 +3,8 @@ name: Deploy
 on:
   repository_dispatch:
   push:
-    branches:
-    - 'main'
+    # branches:
+    # - 'main'
 
 permissions:
   contents: write
@@ -29,3 +29,22 @@ jobs:
             ${{ env.MIRROR_URL }}
           ssh_private_key:
             ${{ secrets.GIT_SSH_PRIVATE_KEY }}
+  deploy_documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8.1'
+          enable-stack: true
+      - name: Create documentation
+        run: haddock -ohtml --html LobsterLang/src/*
+      - name: Deploy to GitHub Pages
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: gh-pages
+          build_dir: html
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
