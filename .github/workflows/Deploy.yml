@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  repository_dispatch:
+  push:
+    branches:
+    - 'main'
+
+permissions:
+  contents: write
+  checks: write
+
+env:
+  MIRROR_URL: git@github.com:EpitechPromo2026/B-FUN-500-PAR-5-2-glados-axel.humeau.git
+
+jobs:
+  push_to_mirror:
+    if: success()
+    runs-on: ubuntu-latest
+    name: push_to_mirror
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url:
+            ${{ env.MIRROR_URL }}
+          ssh_private_key:
+            ${{ secrets.GIT_SSH_PRIVATE_KEY }}
