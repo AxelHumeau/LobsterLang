@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2023
+-- GLaDOS
+-- File description:
+-- SExpr
+-}
+
 module SExpr (SExpr(..), getSymbol, getInteger, getList, printTree) where
 
 data SExpr = Integer Int
@@ -7,7 +14,8 @@ data SExpr = Integer Int
 instance Show SExpr where
     show (Integer i) = show i
     show (Symbol s) = show s
-    show (List l) = filter (/= '\"') ("( " ++ foldr (++) "" ((++ " ") <$> (show <$> l)) ++ ")")
+    show (List l) = filter (/= '\"')
+        ("( " ++ foldr (++) "" ((++ " ") <$> (show <$> l)) ++ ")")
 
 getSymbol :: SExpr -> Maybe String
 getSymbol (Integer _) = Nothing
