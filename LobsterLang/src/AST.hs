@@ -7,6 +7,7 @@
 
 module AST (Ast(..)) where
 
+-- | Abstract syntax tree for representing instructions
 data Ast = Define String Ast
         | Integer Int
         | Symbol String
