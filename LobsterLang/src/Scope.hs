@@ -12,9 +12,10 @@ module Scope(ScopeMb(..),
              getVarInScope) where
 
 import Stack
+import AST
 
 data ScopeMb = ScopeBegin |
-                Variable String Int
+                Variable String Ast
                 deriving (Eq, Show)
 
 beginScope :: [ScopeMb] -> [ScopeMb]
@@ -26,14 +27,14 @@ clearScope (x:xs) | maybe True (ScopeBegin ==) (fst result) = (snd result)
                   where result = pop (x:xs)
 clearScope [] = []
 
-addVarToScope :: [ScopeMb] -> String -> Int -> [ScopeMb]
+addVarToScope :: [ScopeMb] -> String -> Ast -> [ScopeMb]
 addVarToScope stack s v = (Variable s v:stack)
 
-getVarInScope :: [ScopeMb] -> String -> Maybe Int
+getVarInScope :: [ScopeMb] -> String -> Maybe Ast
 getVarInScope stack s = maybe Nothing getVarValue
     (seek (isSearchedVar s) stack)
 
-getVarValue :: ScopeMb -> Maybe Int
+getVarValue :: ScopeMb -> Maybe Ast
 getVarValue (Variable _ v) = Just v
 getVarValue _ = Nothing
 
