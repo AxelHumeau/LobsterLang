@@ -28,6 +28,7 @@ library
       AST
       Lib
       SExpr
+      Stack
   other-modules:
       Paths_LobsterLang
   autogen-modules:
