@@ -26,8 +26,8 @@ source-repository head
 library
   exposed-modules:
       AST
-      Interpreter
       Lib
+      Scope
       SExpr
       Stack
   other-modules:
