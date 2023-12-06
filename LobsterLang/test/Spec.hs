@@ -17,33 +17,33 @@ main = hspec $ do
     it "Check parseChar Failure" $ do
         parseChar ' ' "Hello" `shouldBe` Nothing
     it "Check parseOr Success first arg" $ do
-        parseOr (initParseChar 'a') (initParseChar ' ') "aHello" `shouldBe` Just ('a', "Hello")
+        parseOr (parseChar 'a') (parseChar ' ') "aHello" `shouldBe` Just ('a', "Hello")
     it "Check parseOr Success second arg" $ do
-        parseOr (initParseChar 'a') (initParseChar ' ') " Hello" `shouldBe` Just (' ', "Hello")
+        parseOr (parseChar 'a') (parseChar ' ') " Hello" `shouldBe` Just (' ', "Hello")
     it "Check parseOr Failure" $ do
-        parseOr (initParseChar 'f') (initParseChar 'O') " Oui" `shouldBe` Nothing
+        parseOr (parseChar 'f') (parseChar 'O') " Oui" `shouldBe` Nothing
     it "Check parseAnd Success" $ do
-        parseAnd (initParseChar 'a') (initParseChar 'p') "apHello" `shouldBe` Just (('a', 'p'), "Hello")
+        parseAnd (parseChar 'a') (parseChar 'p') "apHello" `shouldBe` Just (('a', 'p'), "Hello")
     it "Check parseAnd Failure" $ do
-        parseAnd (initParseChar 'e') (initParseChar 'p') "apHello" `shouldBe` Nothing
+        parseAnd (parseChar 'e') (parseChar 'p') "apHello" `shouldBe` Nothing
     it "Check parseAndWith Number Success" $ do
-        parseAndWith (\x y -> [x, y]) (initParseAnyChar ['0'..'9']) (initParseAnyChar ['0'..'9']) "42Hello" `shouldBe` Just ("42", "Hello")
+        parseAndWith (\x y -> [x, y]) (parseAnyChar ['0'..'9']) (parseAnyChar ['0'..'9']) "42Hello" `shouldBe` Just ("42", "Hello")
     it "Check parseAndWith Character Success" $ do
-        parseAndWith (\x y -> [x, y]) (initParseAnyChar ['a'..'z']) (initParseAnyChar ['a'..'z']) "ohHello" `shouldBe` Just ("oh", "Hello")
+        parseAndWith (\x y -> [x, y]) (parseAnyChar ['a'..'z']) (parseAnyChar ['a'..'z']) "ohHello" `shouldBe` Just ("oh", "Hello")
     it "Check parseAndWith Failure" $ do
-        parseAndWith (\x y -> [x, y]) (initParseAnyChar ['a'..'z']) (initParseAnyChar ['0'..'9']) "42Hello" `shouldBe` Nothing
+        parseAndWith (\x y -> [x, y]) (parseAnyChar ['a'..'z']) (parseAnyChar ['0'..'9']) "42Hello" `shouldBe` Nothing
     it "Check parseMany Character Success" $ do
-        parseMany (initParseAnyChar ['a'..'z']) "bonjournoHello" `shouldBe` Just ("bonjourno", "Hello")
+        parseMany (parseAnyChar ['a'..'z']) "bonjournoHello" `shouldBe` Just ("bonjourno", "Hello")
     it "Check parseMany Number Success" $ do
-        parseMany (initParseAnyChar ['0'..'9']) "424554Hello" `shouldBe` Just ("424554", "Hello")
+        parseMany (parseAnyChar ['0'..'9']) "424554Hello" `shouldBe` Just ("424554", "Hello")
     it "Check parseMany Failure" $ do
-        parseMany (initParseAnyChar ['0'..'9']) "Hello" `shouldBe` Just ("", "Hello")
+        parseMany (parseAnyChar ['0'..'9']) "Hello" `shouldBe` Just ("", "Hello")
     it "Check parseSome Number Success" $ do
-        parseSome (initParseAnyChar ['0'..'9']) "042Hello" `shouldBe` Just ("042", "Hello")
+        parseSome (parseAnyChar ['0'..'9']) "042Hello" `shouldBe` Just ("042", "Hello")
     it "Check parseSome Character Success" $ do
-        parseSome (initParseAnyChar ['a'..'z']) "buenos42Hello" `shouldBe` Just ("buenos", "42Hello")
+        parseSome (parseAnyChar ['a'..'z']) "buenos42Hello" `shouldBe` Just ("buenos", "42Hello")
     it "Check parseSome Failure" $ do
-        parseSome (initParseAnyChar ['0'..'9']) "HelloWorld" `shouldBe` Nothing
+        parseSome (parseAnyChar ['0'..'9']) "HelloWorld" `shouldBe` Nothing
     it "Check parseUInt Success" $ do
         parseUInt "5463Hello" `shouldBe` Just (5463, "Hello")
     it "Check parseUInt Failure" $ do
@@ -59,29 +59,29 @@ main = hspec $ do
     it "Check parseInt Failure" $ do
         parseInt "Hello" `shouldBe` Nothing
     it "Check parseTuple Int Success" $ do
-        parseTuple initParseInt "(-123,456)Hello" `shouldBe` Just ((-123,456), "Hello")
+        parseTuple parseInt "(-123,456)Hello" `shouldBe` Just ((-123,456), "Hello")
     it "Check parseTuple Int first Failure" $ do
-        parseTuple initParseInt "(oui,42)Hello" `shouldBe` Nothing
+        parseTuple parseInt "(oui,42)Hello" `shouldBe` Nothing
     it "Check parseTuple Int second Failure" $ do
-        parseTuple initParseInt "(-42,oui)Hello" `shouldBe` Nothing
+        parseTuple parseInt "(-42,oui)Hello" `shouldBe` Nothing
     it "Check parseTuple UInt Success" $ do
-        parseTuple initParseUInt "(123,456)Hello" `shouldBe` Just ((123,456), "Hello")
+        parseTuple parseUInt "(123,456)Hello" `shouldBe` Just ((123,456), "Hello")
     it "Check parseTuple UInt first Failure" $ do
-        parseTuple initParseUInt "(non,42)Hello" `shouldBe` Nothing
+        parseTuple parseUInt "(non,42)Hello" `shouldBe` Nothing
     it "Check parseTuple UInt second Failure" $ do
-        parseTuple initParseUInt "(42,non)Hello" `shouldBe` Nothing
+        parseTuple parseUInt "(42,non)Hello" `shouldBe` Nothing
     it "Check parseTuple AnyChar first Success" $ do
-        parseTuple (initParseSome (initParseAnyChar ['a'..'z'])) "(bon,jour)Hello" `shouldBe` Just (("bon","jour"), "Hello")
+        parseTuple (parseSome (parseAnyChar ['a'..'z'])) "(bon,jour)Hello" `shouldBe` Just (("bon","jour"), "Hello")
     it "Check parseTuple AnyChar second Success" $ do
-        parseTuple (initParseSome (initParseAnyChar (['A'..'Z'] ++ ['a'..'z'] ++ "' "))) "(C'est cool Epitech,J'rigole)Hello" `shouldBe` Just (("C'est cool Epitech", "J'rigole"), "Hello")
+        parseTuple (parseSome (parseAnyChar (['A'..'Z'] ++ ['a'..'z'] ++ "' "))) "(C'est cool Epitech,J'rigole)Hello" `shouldBe` Just (("C'est cool Epitech", "J'rigole"), "Hello")
     it "Check parseTuple AnyChar Failure" $ do
-        parseTuple (initParseAnyChar ['a'..'z']) "(42,42)Hello" `shouldBe` Nothing
+        parseTuple (parseAnyChar ['a'..'z']) "(42,42)Hello" `shouldBe` Nothing
     it "Check parseTuple missing '()' Failure" $ do
-        parseTuple (initParseAnyChar ['a'..'z']) "ouiHello" `shouldBe` Nothing
+        parseTuple (parseAnyChar ['a'..'z']) "ouiHello" `shouldBe` Nothing
     it "Check parseTuple missing '(' Failure" $ do
-        parseTuple (initParseAnyChar ['a'..'z']) "oui,non)Hello" `shouldBe` Nothing
+        parseTuple (parseAnyChar ['a'..'z']) "oui,non)Hello" `shouldBe` Nothing
     it "Check parseTuple missing ')' Failure" $ do
-        parseTuple (initParseAnyChar ['a'..'z']) "(oui,nonHello" `shouldBe` Nothing
+        parseTuple (parseAnyChar ['a'..'z']) "(oui,nonHello" `shouldBe` Nothing
     
     
     -- "(define vie 42)"

@@ -17,25 +17,21 @@ module Parse (
     parseInt,
     parseTuple,
     parseAnyChar,
-    initParseChar,
-    initParseOr,
-    initParseAnd,
-    initParseAndWith,
-    initParseMany,
-    initParseSome,
-    initParseUInt,
-    initParseInt,
-    initParseTuple,
-    initParseAnyChar,
+    parseOr,
+    parseAnd,
+    parseAndWith,
+    parseMany,
+    parseSome,
+    parseUInt,
+    parseInt,
+    parseTuple,
+    parseAnyChar,
 ) where
 
-import Data.Maybe(isNothing)
 import Control.Applicative (Alternative (..))
 
-type ParserType a = String -> Maybe (a, String)
-
-newtype Parser a = Parser {
-    runParser :: ParserType a
+data Parser a = Parser {
+    runParser :: String -> Maybe (a, String)
 }
 
 instance Functor Parser where
@@ -71,93 +67,95 @@ instance Alternative Parser where
         )
 
 
-parseChar :: Char -> ParserType Char
-parseChar _ [] = Nothing
-parseChar c (x:xs)
-    | x == c = Just (c, xs)
-    | otherwise = Nothing
+parseChar :: Char -> Parser Char
+parseChar c = Parser (f c)
+    where
+        f :: Char -> String -> Maybe (Char, String)
+        f char (x:xs) = if char == x then Just (char, xs) else Nothing
+        f _ _ = Nothing
 
-initParseChar :: Char -> Parser Char
-initParseChar c = Parser (parseChar c)
+parseOr :: Parser a -> Parser a -> Parser a
+parseOr parserA parserB = parserA <|> parserB
 
-parseOr :: Parser a -> Parser a -> ParserType a
-parseOr parserA parserB = runParser (parserA <|> parserB)
+parseAnd :: Parser a -> Parser b -> Parser (a, b)
+parseAnd parserA parserB = Parser (f parserA parserB)
+    where
+        f :: Parser a -> Parser b -> String -> Maybe ((a, b), String)
+        f pA pB s = case runParser pA s of
+            Nothing -> Nothing
+            Just resultA -> runParser ((\b -> (fst resultA, b)) <$> pB) (snd resultA)
 
-initParseOr :: Parser a -> Parser a -> Parser a
-initParseOr parserA parserB = Parser (parseOr parserA parserB)
+parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
+parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
+    where
+        f :: (a -> b -> c) -> Parser a -> Parser b -> String -> Maybe (c, String)
+        f f'' pA pB s = case runParser (parseAnd pA pB) s of
+            Nothing -> Nothing
+            Just ((a, b), s') -> Just (f'' a b, s')
 
-parseAnd :: Parser a -> Parser b -> ParserType (a, b)
-parseAnd parserA parserB s = case runParser parserA s of
-    Nothing -> Nothing
-    Just resultA -> runParser ((\b -> (fst resultA, b)) <$> parserB) (snd resultA)
+parseMany :: Parser a -> Parser [a]
+parseMany parserA = Parser (f parserA)
+    where
+        f :: Parser a -> String -> Maybe ([a], String)
+        f parser s = case runParser parser s of
+            Nothing -> Just ([] , s)
+            Just (a, b) -> case runParser (parseMany parser) b of
+                Nothing -> Just ([a], b)
+                Just (a', b') -> Just (a : a', b')
 
-initParseAnd :: Parser a -> Parser b -> Parser (a, b)
-initParseAnd parserA parserB = Parser (parseAnd parserA parserB)
+parseSome :: Parser a -> Parser [a]
+parseSome parser = (:) <$> parser <*> parseMany parser
 
-parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> ParserType c
-parseAndWith f parserA parserB s = case parseAnd parserA parserB s of
-    Nothing -> Nothing
-    Just ((a, b), s') -> Just (f a b, s')
+parseUInt :: Parser Int
+parseUInt = Parser f
+    where
+        f :: String -> Maybe (Int, String)
+        f s = case runParser (parseSome (parseAnyChar ['0'..'9'])) s of
+            Nothing -> Nothing
+            Just ([], _) -> Nothing
+            Just (a, b) -> Just (read a :: Int, b)
 
-initParseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
-initParseAndWith f parserA parserB = Parser (parseAndWith f parserA parserB)
+parseSign :: Parser Char
+parseSign = parseChar '-' <|> parseChar '+'
 
-parseMany :: Parser a -> ParserType [a]
-parseMany parser s = case runParser parser s of
-    Nothing -> Just ([] , s)
-    Just (a, b) -> case parseMany parser b of
-        Nothing -> Just ([a], b)
-        Just (a', b') -> Just (a : a', b')
+parseDigit :: Parser Char
+parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|> parseChar '3' <|>
+             parseChar '4' <|> parseChar '5' <|> parseChar '6' <|> parseChar '7' <|>
+             parseChar '8' <|> parseChar '9'
 
-initParseMany :: Parser a -> Parser [a]
-initParseMany parserA = Parser (parseMany parserA)
+parseInt :: Parser Int
+parseInt = Parser f
+    where
+        f :: String -> Maybe (Int, String)
+        f ('-':xs) = runParser ((\x -> -x) <$> parseUInt) xs
+        f s = runParser parseUInt s
 
-parseSome :: Parser a -> ParserType [a]
-parseSome parser = runParser ((:) <$> parser <*> initParseMany parser)
+-- parseTuple :: Parser a -> Parser (a, a)
+-- parseTuple parser = runParser parseChar '('
 
-initParseSome :: Parser a -> Parser [a]
-initParseSome parserA = Parser (parseSome parserA)
+parseElem :: Parser a -> Parser a
+parseElem parser = parseAndWith (\x _ -> x) parser (parseChar ' ') <|> parser
 
-parseUInt :: ParserType Int
-parseUInt s = case parseSome (initParseAnyChar ['0'..'9']) s of
-    Nothing -> Nothing
-    Just ([], _) -> Nothing
-    Just (a, b) -> Just (read a :: Int, b)
 
-initParseUInt :: Parser Int
-initParseUInt = Parser parseUInt
+-- parseList :: Parser a -> String -> Maybe ([a], String)
+parseList :: Parser a -> Parser [a]
+-- parseList parser = parseSome (parseElem parser)
+parseList parser = Parser (f parser)
+    where
+        f :: Parser a -> String -> Maybe ([a], String)
+        f p ('(':xs) = runParser (parseSome (parseElem p)) xs
+        f _ _ = Nothing
 
-parseInt :: ParserType Int
-parseInt ('-':xs) = runParser ((\x -> -x) <$> initParseUInt) xs
-parseInt ('+':xs) = parseUInt xs
-parseInt s = parseUInt s
-
-initParseInt :: Parser Int
-initParseInt = Parser parseInt
-
-parseTuple :: Parser a -> ParserType (a, a)
-parseTuple parser ('(':xs) = case parseAnd parser (initParseChar ',') xs of
-    Nothing -> Nothing
-    Just ((nb, _), b) -> case parseAnd parser (initParseChar ')') b of
-        Nothing -> Nothing
-        Just ((nb', _), c) -> Just ((nb, nb'), c)
-parseTuple _ _ = Nothing
-
--- parseList :: Parser a -> Parser [a]
--- parseList parser ('(':xs) = case 
-
-initParseTuple :: Parser a -> Parser (a, a)
-initParseTuple parser = Parser (parseTuple parser)
-
-parseAnyChar :: String -> ParserType Char
-parseAnyChar [] _ = Nothing
-parseAnyChar (x:xs) s
-    | isNothing parsed = parseAnyChar xs s
-    | otherwise = parsed
-        where parsed = parseOr (initParseChar x) (initParseChar c) s
-              c
-                | null xs = '\0'
-                | otherwise = head xs
-
-initParseAnyChar :: String -> Parser Char
-initParseAnyChar s = Parser (parseAnyChar s)
+parseAnyChar :: String -> Parser Char
+parseAnyChar s = Parser (f s)
+    where
+        f :: String -> String -> Maybe (Char, String)
+        f [] _ = Nothing
+        f (x:xs) s' = case parsed of
+            Nothing -> runParser (parseAnyChar xs) s'
+            _ -> parsed
+            where
+                parsed = runParser (parseOr (parseChar x) (parseChar c)) s'
+                c = case xs of
+                    [] -> '\0'<<<<
+                    _ -> head xs
