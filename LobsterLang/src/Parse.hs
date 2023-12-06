@@ -15,17 +15,8 @@ module Parse (
     parseSome,
     parseUInt,
     parseInt,
-    parseTuple,
     parseAnyChar,
-    parseOr,
-    parseAnd,
-    parseAndWith,
-    parseMany,
-    parseSome,
-    parseUInt,
-    parseInt,
-    parseTuple,
-    parseAnyChar,
+    -- parseTuple,
 ) where
 
 import Control.Applicative (Alternative (..))
@@ -157,5 +148,5 @@ parseAnyChar s = Parser (f s)
             where
                 parsed = runParser (parseOr (parseChar x) (parseChar c)) s'
                 c = case xs of
-                    [] -> '\0'<<<<
+                    [] -> '\0'
                     _ -> head xs
