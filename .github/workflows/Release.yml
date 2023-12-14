@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  repository_dispatch:
+  push:
+    tags:
+    - v*
+
+permissions:
+  contents: write
+  checks: write
+
+jobs:
+  create_artifacts:
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8.1'
+          enable-stack: true
+      - name: Build artifacts
+        run: make
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: glados-artifacts
+          path: .
+          retention-days: 3
+
+  create_release:
+    if: success() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: create_artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  add_release_assets:
+    if: success() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.8.1'
+          enable-stack: true
+      - name: Download artifacts
+        id: download
+        uses: actions/download-artifact@v3
+        with:
+          name: glados-artifacts
+      - name: Upload Release Asset
+        id: upload-release-asset-2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: glados
+          asset_name: glados-${{ github.ref_name }}
+          asset_content_type: application/octet-stream
