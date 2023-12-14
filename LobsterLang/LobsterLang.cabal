@@ -26,8 +26,11 @@ source-repository head
 library
   exposed-modules:
       AST
+      AstEval
       Lib
+      Scope
       SExpr
+      Stack
   other-modules:
       Paths_LobsterLang
   autogen-modules:
