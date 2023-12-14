@@ -48,7 +48,13 @@ evalAst stack (Call "/" [AST.Integer a, AST.Integer b]) =
         (Just (AST.Integer (div a b)), stack)
 evalAst stack (Call "%" [AST.Integer a, AST.Integer b]) =
         (Just (AST.Integer (mod a b)), stack)
-evalAst stack (Call c [t1, t2]) = maybe (Nothing, stack) (evalAst stack)
+evalAst stack (Call c [t1, t2])
+    | evalt1 == Just t1 && evalt2 == Just t2 = (Nothing, stack)
+    | c `elem` ["+", "-", "/", "*", "%"] =
+        maybe (Nothing, stack) (evalAst stack)
         ((Call c) <$>
         (sequence [fst (evalAst stack t1), fst (evalAst stack t2)]))
+    | otherwise = (Nothing, stack)
+    where evalt1 = fst (evalAst stack t1)
+          evalt2 = fst (evalAst stack t2)
 evalAst stack _ = (Nothing, stack)
