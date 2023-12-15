@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -26,9 +26,12 @@ source-repository head
 library
   exposed-modules:
       AST
+      AstEval
       Lib
       Parse
+      Scope
       SExpr
+      Stack
   other-modules:
       Paths_LobsterLang
   autogen-modules:

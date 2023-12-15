@@ -4,6 +4,7 @@
 -- File description:
 -- Parse
 -}
+{-# LANGUAGE InstanceSigs #-}
 
 module Parse (
     Parser (..),
@@ -16,13 +17,29 @@ module Parse (
     parseUInt,
     parseInt,
     parseAnyChar,
+    parseList,
+    parseString,
+    parseSign,
+    parseDigit,
+    parseBool,
+    parseSExpr,
+    parseSymbol,
+    parseElem,
+    parseValue,
+    parseLisp,
     -- parseTuple,
 ) where
 
+import SExpr
+
 import Control.Applicative (Alternative (..))
+import qualified AstEval
+import qualified AST
+import qualified Scope
 
 data Parser a = Parser {
     runParser :: String -> Maybe (a, String)
+
 }
 
 instance Functor Parser where
@@ -58,6 +75,16 @@ instance Alternative Parser where
         )
 
 
+instance Monad Parser where
+    (>>=) :: Parser a -> (a -> Parser b) -> Parser b
+    a >>= b =
+        Parser
+        (
+            \s -> case runParser a s of
+                Nothing -> Nothing
+                Just (res, s') -> runParser (b res) s'
+        )
+
 parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
@@ -74,15 +101,16 @@ parseAnd parserA parserB = Parser (f parserA parserB)
         f :: Parser a -> Parser b -> String -> Maybe ((a, b), String)
         f pA pB s = case runParser pA s of
             Nothing -> Nothing
-            Just resultA -> runParser ((\b -> (fst resultA, b)) <$> pB) (snd resultA)
+            Just resultA ->
+                runParser ((\b -> (fst resultA, b)) <$> pB) (snd resultA)
 
 parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
 parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
     where
-        f :: (a -> b -> c) -> Parser a -> Parser b -> String -> Maybe (c, String)
-        f f'' pA pB s = case runParser (parseAnd pA pB) s of
-            Nothing -> Nothing
-            Just ((a, b), s') -> Just (f'' a b, s')
+    f :: (a -> b -> c) -> Parser a -> Parser b ->String -> Maybe (c, String)
+    f f'' pA pB s = case runParser (parseAnd pA pB) s of
+        Nothing -> Nothing
+        Just ((a, b), s') -> Just (f'' a b, s')
 
 parseMany :: Parser a -> Parser [a]
 parseMany parserA = Parser (f parserA)
@@ -110,9 +138,10 @@ parseSign :: Parser Char
 parseSign = parseChar '-' <|> parseChar '+'
 
 parseDigit :: Parser Char
-parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|> parseChar '3' <|>
-             parseChar '4' <|> parseChar '5' <|> parseChar '6' <|> parseChar '7' <|>
-             parseChar '8' <|> parseChar '9'
+parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|>
+             parseChar '3' <|> parseChar '4' <|> parseChar '5' <|>
+             parseChar '6' <|> parseChar '7' <|> parseChar '8' <|>
+             parseChar '9'
 
 parseInt :: Parser Int
 parseInt = Parser f
@@ -121,21 +150,27 @@ parseInt = Parser f
         f ('-':xs) = runParser ((\x -> -x) <$> parseUInt) xs
         f s = runParser parseUInt s
 
--- parseTuple :: Parser a -> Parser (a, a)
--- parseTuple parser = runParser parseChar '('
+parseSpace :: Parser [Char]
+parseSpace = parseMany (parseChar ' ')
 
 parseElem :: Parser a -> Parser a
-parseElem parser = parseAndWith (\x _ -> x) parser (parseChar ' ') <|> parser
+parseElem parser = parseAndWith (\x _ -> x) parser parseSpace <|> parser
 
+parseString :: Parser String
+parseString = parseSpace *> parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z'] ++ "-*/%+#")) <* parseSpace
 
--- parseList :: Parser a -> String -> Maybe ([a], String)
+parseSymbol :: Parser SExpr
+parseSymbol = Symbol <$> parseElem parseString
+
+parseValue :: Parser SExpr
+parseValue = Value <$> parseElem parseInt
+
 parseList :: Parser a -> Parser [a]
--- parseList parser = parseSome (parseElem parser)
-parseList parser = Parser (f parser)
+parseList parser = parseStart *> parseListValue <* parseEnd
     where
-        f :: Parser a -> String -> Maybe ([a], String)
-        f p ('(':xs) = runParser (parseSome (parseElem p)) xs
-        f _ _ = Nothing
+        parseEnd = parseChar ')' <* parseSpace
+        parseListValue = parseSpace *> parseMany (parseElem parser)
+        parseStart = parseSpace *> parseChar '('
 
 parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
@@ -150,3 +185,21 @@ parseAnyChar s = Parser (f s)
                 c = case xs of
                     [] -> '\0'
                     _ -> head xs
+
+parseBool :: Parser Bool
+parseBool = parseElem (Parser f)
+    where
+        f :: String -> Maybe (Bool, String)
+        f ('#':'f':' ':xs) = Just (False, xs)
+        f ('#':'t':' ':xs) = Just (True, xs)
+        f _ = Nothing
+
+parseSExpr :: Parser SExpr
+parseSExpr = List <$> parseList (parseSpace *> parseValue <|> parseSymbol <|> parseSpace *> parseSExpr)
+
+parseLisp :: String -> (Maybe AST.Ast, [Scope.ScopeMb])
+parseLisp s = case runParser parseSExpr s of
+    Nothing -> (Nothing, [])
+    Just (res, _) -> case AstEval.sexprToAst res of
+        Nothing -> (Nothing, [])
+        Just value -> AstEval.evalAst [] value
