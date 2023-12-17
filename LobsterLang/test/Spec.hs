@@ -7,7 +7,9 @@
 
 import Test.Hspec
 import Parse
-import Data.Maybe()
+import qualified SExpr
+import qualified AST
+import Data.Bool (Bool(True, False))
 
 main :: IO ()
 main = hspec $ do
@@ -58,32 +60,58 @@ main = hspec $ do
         runParser parseInt "-42Hello" `shouldBe` Just (-42, "Hello")
     it "Check parseInt Failure" $ do
         runParser parseInt "Hello" `shouldBe` Nothing
-    -- it "Check parseTuple Int Success" $ do
-    --     parseTuple parseInt "(-123,456)Hello" `shouldBe` Just ((-123,456), "Hello")
-    -- it "Check parseTuple Int first Failure" $ do
-    --     parseTuple parseInt "(oui,42)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple Int second Failure" $ do
-    --     parseTuple parseInt "(-42,oui)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple UInt Success" $ do
-    --     parseTuple parseUInt "(123,456)Hello" `shouldBe` Just ((123,456), "Hello")
-    -- it "Check parseTuple UInt first Failure" $ do
-    --     parseTuple parseUInt "(non,42)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple UInt second Failure" $ do
-    --     parseTuple parseUInt "(42,non)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple AnyChar first Success" $ do
-    --     parseTuple (parseSome (parseAnyChar ['a'..'z'])) "(bon,jour)Hello" `shouldBe` Just (("bon","jour"), "Hello")
-    -- it "Check parseTuple AnyChar second Success" $ do
-    --     parseTuple (parseSome (parseAnyChar (['A'..'Z'] ++ ['a'..'z'] ++ "' "))) "(C'est cool Epitech,J'rigole)Hello" `shouldBe` Just (("C'est cool Epitech", "J'rigole"), "Hello")
-    -- it "Check parseTuple AnyChar Failure" $ do
-    --     parseTuple (parseAnyChar ['a'..'z']) "(42,42)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple missing '()' Failure" $ do
-    --     parseTuple (parseAnyChar ['a'..'z']) "ouiHello" `shouldBe` Nothing
-    -- it "Check parseTuple missing '(' Failure" $ do
-    --     parseTuple (parseAnyChar ['a'..'z']) "oui,non)Hello" `shouldBe` Nothing
-    -- it "Check parseTuple missing ')' Failure" $ do
-    --     parseTuple (parseAnyChar ['a'..'z']) "(oui,nonHello" `shouldBe` Nothing
-    
-    
+    it "Check parsesign '-' Success" $ do
+        runParser parseSign "-llg" `shouldBe` Just ('-', "llg")
+    it "Check parsesign '+' Success" $ do
+        runParser parseSign "+llg" `shouldBe` Just ('+', "llg")
+    it "Check parsesign Failure" $ do
+        runParser parseSign "lg" `shouldBe` Nothing
+    it "Check parseString Success n°1" $ do
+        runParser parseString "bonjourno " `shouldBe` Just ("bonjourno", "")
+    it "Check parseString Success n°2" $ do
+        runParser parseString "bon12*/p journo " `shouldBe` Just ("bon", "12*/p journo ")
+    it "Check parseString Failure" $ do
+        runParser parseString "^bon12*/p journo " `shouldBe` Nothing
+    it "Check parseElem with parseInt Success" $ do
+        runParser (parseElem parseInt) "12 " `shouldBe` Just (12, "")
+    it "Check parseElem with parseString Success" $ do
+        runParser (parseElem parseString) "hello la " `shouldBe` Just ("hello", "la ")
+    it "Check parseElem with parseSymbol Success" $ do
+        runParser (parseElem parseSymbol) "hello   la " `shouldBe` Just (SExpr.Symbol "hello", "la ")
+    it "Check parseValue Success" $ do
+        runParser parseValue "432           la " `shouldBe` Just (SExpr.Value 432, "la ")
+    it "Check parseSymbol Success" $ do
+        runParser parseSymbol "symbol           la " `shouldBe` Just (SExpr.Symbol "symbol", "la ")
+    it "Check parseList with parseInt Success" $ do
+        runParser (parseList parseInt) "(1 2 3   4 5) " `shouldBe` Just ([1, 2 ,3 , 4, 5], "")
+    it "Check parseList with parseInt Failure (without a number inside)" $ do
+        runParser (parseList parseInt) "(1 2 3  d 4 5) " `shouldBe` Nothing
+    it "Check parseList with parseInt Failure (without a ending ')')" $ do
+        runParser (parseList parseInt) "(1 2 3  4 5 " `shouldBe` Nothing
+    it "Check parseList with parseInt Failure (without a starting '(')" $ do
+        runParser (parseList parseInt) "1 2 3  4 5)" `shouldBe` Nothing
+    it "Check parseList with parseString Success" $ do
+        runParser (parseList parseString) "(buenos owow k ye    )1 2 3  4 5)" `shouldBe` Just (["buenos", "owow", "k", "ye"], "1 2 3  4 5)")
+    it "Check parseList with parseString Failure" $ do
+        runParser (parseList parseString) "(buenos 3 owow k ye    )1 2 3  4 5)" `shouldBe` Nothing
+    it "Check parseBool true Success" $ do
+        runParser parseBool "#t lp" `shouldBe` Just (True, "lp")
+    it "Check parseBool false Success" $ do
+        runParser parseBool "#f lp" `shouldBe` Just (False, "lp")
+    it "Check parseBool Failure" $ do
+        runParser parseBool "#tlp" `shouldBe` Nothing
+    it "Check parseSExpr Success n°1" $ do
+        runParser parseSExpr "(define foo (* 3 3))" `shouldBe` Just (SExpr.List [SExpr.Symbol "define",SExpr.Symbol "foo",SExpr.List [SExpr.Symbol "*",SExpr.Value 3,SExpr.Value 3]], "")
+    it "Check parseSExpr Success n°2" $ do
+        runParser parseSExpr "(   define   foo    3     )" `shouldBe` Just (SExpr.List [SExpr.Symbol "define",SExpr.Symbol "foo",SExpr.Value 3], "")
+    it "Check ParseLisp Success n°1" $ do
+        parseLisp "(* 3 (+ 2 2))" `shouldBe` (Just (AST.Value 12), [])
+    it "Check ParseLisp Success n°2" $ do
+        parseLisp "(* 3 (+ 2 (/ 12 6)))" `shouldBe` (Just (AST.Value 12), [])
+    it "Check ParseLisp Success n°2" $ do
+        parseLisp "(* 3 (+ 2 (/ 12 6))" `shouldBe` (Nothing, [])
+
+
     -- "(define vie 42)"
     -- "(define (fact x))"
     -- "(+ (* 2 3) (div 10 2))"
