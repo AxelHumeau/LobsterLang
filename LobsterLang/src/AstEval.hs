@@ -32,7 +32,7 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 evalAst :: [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
 evalAst stack (Define s v) = (Nothing, addVarToScope stack s v)
 evalAst stack (AST.Value i) = (Just (AST.Value i), stack)
-evalAst stack (AST.Symbol s) = (fst result, snd result)
+evalAst stack (AST.Symbol s) = result
         where result = maybe (Nothing, stack) (evalAst stack)
                 (getVarInScope stack s)
 evalAst stack (Boolean b) = (Just (Boolean b), stack)
