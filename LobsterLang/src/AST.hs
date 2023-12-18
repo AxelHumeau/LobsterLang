@@ -9,9 +9,8 @@ module AST (Ast(..)) where
 
 -- | Abstract syntax tree for representing instructions
 data Ast = Define String Ast
-        | Integer Int
+        | Value Int
         | Symbol String
         | Boolean Bool
         | Call String [Ast]
         deriving (Show, Eq)
-

@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -28,6 +28,7 @@ library
       AST
       AstEval
       Lib
+      Parse
       Scope
       SExpr
       Stack
@@ -69,4 +70,5 @@ test-suite LobsterLang-test
   build-depends:
       LobsterLang
     , base >=4.7 && <5
+    , hspec
   default-language: Haskell2010

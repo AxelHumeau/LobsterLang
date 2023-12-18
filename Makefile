@@ -20,7 +20,7 @@ $(NAME):
 clean:
 	cd $(PKG_NAME) && stack clean
 
-fclean:
+fclean: clean
 	cd $(PKG_NAME) && stack purge
 	$(RM) $(NAME)
 
