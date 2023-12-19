@@ -9,7 +9,7 @@ import Test.Hspec
 import Parse
 import qualified SExpr
 import qualified AST
-import Data.Bool (Bool(True, False))
+import Data.Bool()
 
 main :: IO ()
 main = hspec $ do
@@ -105,11 +105,11 @@ main = hspec $ do
     it "Check parseSExpr Success n°2" $ do
         runParser parseSExpr "(   define   foo    3     )" `shouldBe` Just (SExpr.List [SExpr.Symbol "define",SExpr.Symbol "foo",SExpr.Value 3], "")
     it "Check ParseLisp Success n°1" $ do
-        parseLisp "(* 3 (+ 2 2))" `shouldBe` (Just (AST.Value 12), [])
+        parseLisp "(* 3 (+ 2 2))" [] `shouldBe` (Just (AST.Value 12), [])
     it "Check ParseLisp Success n°2" $ do
-        parseLisp "(* 3 (+ 2 (/ 12 6)))" `shouldBe` (Just (AST.Value 12), [])
-    it "Check ParseLisp Success n°2" $ do
-        parseLisp "(* 3 (+ 2 (/ 12 6))" `shouldBe` (Nothing, [])
+        parseLisp "(* 3 (+ 2 (/ 12 6)))" [] `shouldBe` (Just (AST.Value 12), [])
+    it "Check ParseLisp Failure n°1" $ do
+        parseLisp "(* 3 (+ 2 (/ 12 6))" [] `shouldBe` (Nothing, [])
 
 
     -- "(define vie 42)"

@@ -27,6 +27,6 @@ fclean: clean
 re: fclean all
 
 tests_run:
-	cd $(PKG_NAME) && stack test
+	cd $(PKG_NAME) && stack test --coverage
 
 .PHONY: all clean fclean re tests_run
