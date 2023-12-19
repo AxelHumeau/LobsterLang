@@ -13,10 +13,6 @@ module Scope
     getVarInScope,
     addFuncToScope,
     callFunc,
-    isSearchedFunc,
-    getAst,
-    getFuncParamNames,
-    createFuncVar
   )
 where
 
@@ -62,8 +58,8 @@ callFunc stack name asts
 
 createFuncVar :: [ScopeMb] -> [String] -> [Ast] -> [ScopeMb]
 createFuncVar stack [] [] = stack
-createFuncVar stack [] _ = []
-createFuncVar stack _ [] = []
+createFuncVar _ [] _ = []
+createFuncVar _ _ [] = []
 createFuncVar stack (name : nxs) (ast : axs) = createFuncVar (addVarToScope stack name ast) nxs axs
 
 -- | Add a Variable to the stack with its name as a 'String'
