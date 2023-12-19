@@ -12,6 +12,10 @@ import Scope
 import System.IO (isEOF)
 import System.Exit (exitWith, ExitCode (ExitFailure))
 
+import Compiler
+import qualified AST
+
+
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
 inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
@@ -21,4 +25,11 @@ inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDO
 
 -- | Main
 main :: IO ()
-main =  print "Start of Interpretation Lisp" >> inputLoop []
+main =
+    -- putStrLn ("VAL" ++ show 5)
+    putStrLn (compileAst (AST.Value 5))
+    -- print "Start of Interpretation Lisp" >> inputLoop []
+
+-- main :: IO ()
+-- main = do
+--     BL.writeFile "out" (BLU.pack "test")
