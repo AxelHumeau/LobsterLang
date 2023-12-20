@@ -41,6 +41,7 @@ data Operator = Add
               | Subtract
               | Multiply
               | Divide
+              | Eq
 
 data Instruction = Push Value
                 | Call Operator
@@ -72,6 +73,13 @@ makeOperation Divide stack = case Stack.pop stack of
             | otherwise -> Left "Error: division by zero"
         (Nothing, _) -> Left "Error : Divide need two arguments"
     (Nothing, _) -> Left "Error : Divide need two arguments"
+makeOperation Eq stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x == y -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : Equality need two arguments"
+    (Nothing, _) -> Left "Error : Equality need two arguments"
 
 
 
