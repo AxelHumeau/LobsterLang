@@ -45,6 +45,8 @@ data Operator = Add
 
 data Instruction = Push Value
                 | Call Operator
+                | JumpIfFalse Int
+                | JumpIfTrue Int
                 | Ret
 
 type Stack = [Value]
@@ -81,14 +83,32 @@ makeOperation Eq stack = case Stack.pop stack of
         (Nothing, _) -> Left "Error : Equality need two arguments"
     (Nothing, _) -> Left "Error : Equality need two arguments"
 
-
+isBoolVal :: Maybe Value -> Bool
+isBoolVal (Just (BoolVal _)) = True
+isBoolVal _ = False
 
 exec :: Inst -> Stack -> Either String Value
 exec (Call _:_) [] = Left "Error: stack is empty"
-exec (Call op :xs) stack = case makeOperation op stack of
+exec (Call op:xs) stack = case makeOperation op stack of
     Left err -> Left err
     Right newstack -> exec xs newstack
-exec (Push val : xs) stack = exec xs (Stack.push stack val)
+exec (Push val:xs) stack = exec xs (Stack.push stack val)
+exec (JumpIfFalse val:xs) stack
+  | null xs = Left "Error: no jump possible"
+  | null stack = Left "Error: stack is empty"
+  | val == 0 = Left "Error: invalid jump value"
+  | val > length xs = Left "Error: invalid jump value"
+  | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
+  | (head stack) == BoolVal True = exec xs stack
+  | otherwise = exec (drop val xs) stack
+exec (JumpIfTrue val:xs) stack
+  | null xs = Left "Error: no jump possible"
+  | null stack = Left "Error: stack is empty"
+  | val == 0 = Left "Error: invalid jump value"
+  | val > length xs = Left "Error: invalid jump value"
+  | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
+  | (head stack) == BoolVal False = exec xs stack
+  | otherwise = exec (drop val xs) stack
 exec (Ret : _) stack = case Stack.top stack of
     Just x -> Right x
     Nothing -> Left "Error: stack is empty"
