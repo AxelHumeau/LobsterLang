@@ -27,7 +27,7 @@ inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDO
 main :: IO ()
 main =
     -- putStrLn ("VAL" ++ show 5)
-    putStrLn (compileAst (AST.Value 5))
+    putStrLn (compileAst (AST.Call "myFunc" [(AST.Value 5), (AST.Value 5), (AST.Boolean True), (AST.Symbol "is_neg")]))
     -- print "Start of Interpretation Lisp" >> inputLoop []
 
 -- main :: IO ()
