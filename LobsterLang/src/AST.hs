@@ -13,4 +13,5 @@ data Ast = Define String Ast
         | Symbol String
         | Boolean Bool
         | Call String [Ast]
+        | FunctionValue [String] Ast (Maybe [Ast])
         deriving (Show, Eq)

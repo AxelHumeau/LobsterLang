@@ -11,6 +11,7 @@ module Scope
     clearScope,
     addVarToScope,
     getVarInScope,
+    addVarsToScope,
     addFuncToScope,
     callFunc,
   )
@@ -66,6 +67,13 @@ createFuncVar stack (name : nxs) (ast : axs) = createFuncVar (addVarToScope stac
 -- and its value by an 'Ast'
 addVarToScope :: [ScopeMb] -> String -> Ast -> [ScopeMb]
 addVarToScope stack s v = push stack (Variable s v)
+
+-- | Add multiple variables to the stack with their names as a 'String'
+-- and their values as an 'Ast'
+addVarsToScope :: [ScopeMb] -> [String] -> [Ast] -> [ScopeMb]
+addVarsToScope stack [] _ = stack
+addVarsToScope stack _ [] = stack
+addVarsToScope stack (s:xs1) (v:xs2) = push (addVarsToScope stack xs1 xs2) (Variable s v)
 
 -- | Get the value contained in the variable given by name as a 'String',
 -- return 'Nothing' if the variable don't exist or 'Just' its value

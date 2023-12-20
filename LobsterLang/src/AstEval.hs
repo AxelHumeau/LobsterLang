@@ -11,6 +11,7 @@ import AST
 import qualified Data.Bifunctor
 import SExpr
 import Scope
+import Data.Maybe
 
 -- | Convert a S-expression into an 'Ast',
 -- return Nothing if the expression is invalid or Just the Ast
@@ -31,6 +32,7 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 -- (or Nothing if an error occured or a non evaluable Ast is given)
 -- and the stack after evaluation.
 evalAst :: [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
+evalAst stack (Define s (FunctionValue params ast Nothing)) = (Nothing, addFuncToScope stack s params ast)
 evalAst stack (Define s v) = (Nothing, addVarToScope stack s v)
 
 evalAst stack (AST.Value i) = (Just (AST.Value i), stack)
@@ -86,6 +88,14 @@ evalAst stack (Call name params)
   where
     nsAndAst = callFunc stack name params
     result = maybe (Nothing, stack) (evalAst (fst nsAndAst)) (snd nsAndAst)
+
+evalAst stack (FunctionValue _ _ Nothing) = (Nothing, stack)
+evalAst stack (FunctionValue params ast (Just asts))
+  | isNothing (fst result) = (Nothing, stack)
+  | otherwise = Data.Bifunctor.second clearScope result
+  where
+    newStack = addVarsToScope (beginScope stack) params asts
+    result = evalAst newStack ast
 
 evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
 evalSubParams stack = mapM (fst . evalAst stack)
