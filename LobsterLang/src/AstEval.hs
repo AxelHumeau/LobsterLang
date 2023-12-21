@@ -9,9 +9,9 @@ module AstEval (sexprToAst, evalAst) where
 
 import AST
 import qualified Data.Bifunctor
+import Data.Maybe
 import SExpr
 import Scope
-import Data.Maybe
 
 -- | Convert a S-expression into an 'Ast',
 -- return Nothing if the expression is invalid or Just the Ast
@@ -34,61 +34,57 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 evalAst :: [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
 evalAst stack (Define s (FunctionValue params ast Nothing)) = (Nothing, addFuncToScope stack s params ast)
 evalAst stack (Define s v) = (Nothing, addVarToScope stack s v)
-
 evalAst stack (AST.Value i) = (Just (AST.Value i), stack)
-
 evalAst stack (AST.Symbol s) =
   maybe
     (Nothing, stack)
     (evalAst stack)
     (getVarInScope stack s)
-
 evalAst stack (Boolean b) = (Just (Boolean b), stack)
-
 evalAst stack (Call "+" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "+" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "+" [AST.Value a, AST.Value b]) =
   (Just (AST.Value (a + b)), stack)
-evalAst stack (Call "+" [ast1,ast2]) = maybe (Nothing, stack) (evalAst stack . Call "+") (evalSubParams stack [ast1,ast2])
+evalAst stack (Call "+" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "+") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "+" _) = (Nothing, stack)
-
 evalAst stack (Call "-" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "-" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "-" [AST.Value a, AST.Value b]) =
   (Just (AST.Value (a - b)), stack)
-evalAst stack (Call "-" [ast1,ast2]) = maybe (Nothing, stack) (evalAst stack . Call "-") (evalSubParams stack [ast1,ast2])
+evalAst stack (Call "-" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "-") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "-" _) = (Nothing, stack)
-
 evalAst stack (Call "*" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "*" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "*" [AST.Value a, AST.Value b]) =
   (Just (AST.Value (a * b)), stack)
-evalAst stack (Call "*" [ast1,ast2]) = maybe (Nothing, stack) (evalAst stack . Call "*") (evalSubParams stack [ast1,ast2])
+evalAst stack (Call "*" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "*") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "*" _) = (Nothing, stack)
-
 evalAst stack (Call "/" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "/" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "/" [_, AST.Value 0]) = (Nothing, stack)
 evalAst stack (Call "/" [AST.Value a, AST.Value b]) =
   (Just (AST.Value (div a b)), stack)
-evalAst stack (Call "/" [ast1,ast2]) = maybe (Nothing, stack) (evalAst stack . Call "/") (evalSubParams stack [ast1,ast2])
+evalAst stack (Call "/" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "/") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "/" _) = (Nothing, stack)
-
 evalAst stack (Call "%" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "%" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "%" [_, AST.Value 0]) = (Nothing, stack)
 evalAst stack (Call "%" [AST.Value a, AST.Value b]) =
   (Just (AST.Value (mod a b)), stack)
-evalAst stack (Call "%" [ast1,ast2]) = maybe (Nothing, stack) (evalAst stack . Call "%") (evalSubParams stack [ast1,ast2])
+evalAst stack (Call "%" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "%") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "%" _) = (Nothing, stack)
-
+evalAst stack (Call "==" [AST.Boolean _, _]) = (Nothing, stack)
+evalAst stack (Call "==" [_, AST.Boolean _]) = (Nothing, stack)
+evalAst stack (Call "==" [AST.Value a, AST.Value b]) =
+  (Just (AST.Boolean (a == b)), stack)
+evalAst stack (Call "==" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "%") (evalSubParams stack [ast1, ast2])
+evalAst stack (Call "==" _) = (Nothing, stack)
 evalAst stack (Call name params)
   | result == (Nothing, stack) = result
   | otherwise = Data.Bifunctor.second clearScope result
   where
     nsAndAst = callFunc stack name params
     result = maybe (Nothing, stack) (evalAst (fst nsAndAst)) (snd nsAndAst)
-
 evalAst stack (FunctionValue _ _ Nothing) = (Nothing, stack)
 evalAst stack (FunctionValue params ast (Just asts))
   | isNothing (fst result) = (Nothing, stack)
@@ -96,13 +92,14 @@ evalAst stack (FunctionValue params ast (Just asts))
   where
     newStack = addVarsToScope (beginScope stack) params asts
     result = evalAst newStack ast
+evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
+  | b = evalAst stack a1
+  | otherwise = evalAst stack a2
+evalAst stack (Cond (AST.Boolean b) a1 Nothing)
+  | b = evalAst stack a1
+  | otherwise = (Nothing, stack)
+evalAst stack _ = (Nothing, stack)
 
 evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
 evalSubParams stack = mapM (fst . evalAst stack)
--- evalSubParams stack (Call c [ast1, ast2])
---   | eval1 == Just ast1 && eval2 == Just ast2 = (Nothing, stack)
---   | otherwise = maybe (Nothing, stack) (evalAst stack . Call c) (sequence [eval1, eval2])
---   where
---     eval1 = fst (evalAst stack ast1)
---     eval2 = fst (evalAst stack ast2)
--- evalSubParams stack _ = (Nothing, stack)
+
