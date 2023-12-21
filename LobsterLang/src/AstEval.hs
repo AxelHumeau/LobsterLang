@@ -77,7 +77,7 @@ evalAst stack (Call "==" [AST.Boolean _, _]) = (Nothing, stack)
 evalAst stack (Call "==" [_, AST.Boolean _]) = (Nothing, stack)
 evalAst stack (Call "==" [AST.Value a, AST.Value b]) =
   (Just (AST.Boolean (a == b)), stack)
-evalAst stack (Call "==" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "%") (evalSubParams stack [ast1, ast2])
+evalAst stack (Call "==" [ast1, ast2]) = maybe (Nothing, stack) (evalAst stack . Call "==") (evalSubParams stack [ast1, ast2])
 evalAst stack (Call "==" _) = (Nothing, stack)
 evalAst stack (Call name params)
   | result == (Nothing, stack) = result
@@ -102,4 +102,3 @@ evalAst stack _ = (Nothing, stack)
 
 evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
 evalSubParams stack = mapM (fst . evalAst stack)
-
