@@ -19,21 +19,29 @@ data Value = IntVal Int
            deriving (Show, Eq)
 
 instance Num Value where
+  (BoolVal x) + (IntVal y) = IntVal (fromEnum x + y)
+  (IntVal x) + (BoolVal y) = IntVal (x + fromEnum y)
   (IntVal x) + (IntVal y) = IntVal (x + y)
-  _ + _ = error "Unsupported operand types for +"
+  (BoolVal x) + (BoolVal y) = IntVal (fromEnum x + fromEnum y)
   (IntVal x) - (IntVal y) = IntVal (x - y)
-  _ - _ = error "Unsupported operand types for -"
+  (BoolVal x) - (IntVal y) = IntVal (fromEnum x - y)
+  (IntVal x) - (BoolVal y) = IntVal (x - fromEnum y)
+  (BoolVal x) - (BoolVal y) = IntVal (fromEnum x - fromEnum y)
   (IntVal x) * (IntVal y) = IntVal (x * y)
-  _ * _ = error "Unsupported operand types for *"
+  (BoolVal x) * (IntVal y) = IntVal (fromEnum x * y)
+  (IntVal x) * (BoolVal y) = IntVal (x * fromEnum y)
+  (BoolVal x) * (BoolVal y) = IntVal (fromEnum x * fromEnum y)
   abs (IntVal x) = IntVal (abs x)
-  abs _ = error "Unsupported operand type for abs"
+  abs (BoolVal x) = IntVal (abs (fromEnum x))
   signum (IntVal x) = IntVal (signum x)
-  signum _ = error "Unsupported operand type for signum"
+  signum (BoolVal x) = IntVal (signum (fromEnum x))
   fromInteger x = IntVal (fromInteger x)
 
 instance Fractional Value where
   (IntVal x) / (IntVal y) = IntVal (x `div` y)
-  _ / _ = error "Unsupported operand types for /"
+  (BoolVal x) / (IntVal y) = IntVal (fromEnum x `div` y)
+  (IntVal x) / (BoolVal y) = IntVal (x `div` fromEnum y)
+  (BoolVal x) / (BoolVal y) = IntVal (fromEnum x `div` fromEnum y)
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
 
 
@@ -51,6 +59,7 @@ data Instruction = Push Value
 
 type Stack = [Value]
 type Inst = [Instruction]
+type Arg = [Value]
 
 makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
@@ -71,6 +80,7 @@ makeOperation Multiply stack = case Stack.pop stack of
 makeOperation Divide stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
+            | y == BoolVal False -> Left "Error: division by zero"
             | y /= 0 -> Right (Stack.push stack2 (x / y))
             | otherwise -> Left "Error: division by zero"
         (Nothing, _) -> Left "Error : Divide need two arguments"
@@ -96,7 +106,7 @@ exec (Push val:xs) stack = exec xs (Stack.push stack val)
 exec (JumpIfFalse val:xs) stack
   | null xs = Left "Error: no jump possible"
   | null stack = Left "Error: stack is empty"
-  | val == 0 = Left "Error: invalid jump value"
+  | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
   | (head stack) == BoolVal True = exec xs stack
@@ -104,7 +114,7 @@ exec (JumpIfFalse val:xs) stack
 exec (JumpIfTrue val:xs) stack
   | null xs = Left "Error: no jump possible"
   | null stack = Left "Error: stack is empty"
-  | val == 0 = Left "Error: invalid jump value"
+  | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
   | (head stack) == BoolVal False = exec xs stack
