@@ -16,7 +16,7 @@ import Data.Ratio
 
 data Value = IntVal Int
            | BoolVal Bool
-           deriving (Show, Eq)
+           deriving (Show, Eq, Ord)
 
 instance Num Value where
   (BoolVal x) + (IntVal y) = IntVal (fromEnum x + y)
@@ -50,6 +50,7 @@ data Operator = Add
               | Multiply
               | Divide
               | Eq
+              | Less
 
 data Instruction = Push Value
                 | Call Operator
@@ -92,6 +93,13 @@ makeOperation Eq stack = case Stack.pop stack of
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : Equality need two arguments"
     (Nothing, _) -> Left "Error : Equality need two arguments"
+makeOperation Less stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x < y -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : Less need two arguments"
+    (Nothing, _) -> Left "Error : Less need two arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
