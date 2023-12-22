@@ -53,6 +53,7 @@ data Operator = Add
               | Less
 
 data Instruction = Push Value
+                | PushArg Int
                 | Call Operator
                 | JumpIfFalse Int
                 | JumpIfTrue Int
@@ -105,29 +106,34 @@ isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
 isBoolVal _ = False
 
-exec :: Inst -> Stack -> Either String Value
-exec (Call _:_) [] = Left "Error: stack is empty"
-exec (Call op:xs) stack = case makeOperation op stack of
+exec :: Arg -> Inst -> Stack -> Either String Value
+exec _ (Call _:_) [] = Left "Error: stack is empty"
+exec arg (Call op:xs) stack = case makeOperation op stack of
     Left err -> Left err
-    Right newstack -> exec xs newstack
-exec (Push val:xs) stack = exec xs (Stack.push stack val)
-exec (JumpIfFalse val:xs) stack
+    Right newstack -> exec arg xs newstack
+exec [] (PushArg _:_) _ = Left "Error: no Arg"
+exec arg (PushArg x:xs) stack
+    | x < 0 = Left "Error index out of range"
+    | x >= length arg = Left "Error: index out of range"
+    | otherwise = exec arg xs (Stack.push stack (arg !! x))
+exec arg (Push val:xs) stack = exec arg xs (Stack.push stack val)
+exec arg (JumpIfFalse val:xs) stack
   | null xs = Left "Error: no jump possible"
   | null stack = Left "Error: stack is empty"
   | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal True = exec xs stack
-  | otherwise = exec (drop val xs) stack
-exec (JumpIfTrue val:xs) stack
+  | (head stack) == BoolVal True = exec arg xs stack
+  | otherwise = exec arg (drop val xs) stack
+exec arg (JumpIfTrue val:xs) stack
   | null xs = Left "Error: no jump possible"
   | null stack = Left "Error: stack is empty"
   | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal False = exec xs stack
-  | otherwise = exec (drop val xs) stack
-exec (Ret : _) stack = case Stack.top stack of
+  | (head stack) == BoolVal False = exec arg xs stack
+  | otherwise = exec arg (drop val xs) stack
+exec _ (Ret : _) stack = case Stack.top stack of
     Just x -> Right x
     Nothing -> Left "Error: stack is empty"
-exec [] _ = Left "list no instruction found"
+exec _ [] _ = Left "list no instruction found"
