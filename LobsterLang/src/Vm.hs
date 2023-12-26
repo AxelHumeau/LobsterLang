@@ -16,6 +16,7 @@ import Data.Ratio
 
 data Value = IntVal Int
            | BoolVal Bool
+           | Op Operator
            deriving (Show, Eq, Ord)
 
 instance Num Value where
@@ -23,18 +24,23 @@ instance Num Value where
   (IntVal x) + (BoolVal y) = IntVal (x + fromEnum y)
   (IntVal x) + (IntVal y) = IntVal (x + y)
   (BoolVal x) + (BoolVal y) = IntVal (fromEnum x + fromEnum y)
+  _ + _  = IntVal (0)
   (IntVal x) - (IntVal y) = IntVal (x - y)
   (BoolVal x) - (IntVal y) = IntVal (fromEnum x - y)
   (IntVal x) - (BoolVal y) = IntVal (x - fromEnum y)
   (BoolVal x) - (BoolVal y) = IntVal (fromEnum x - fromEnum y)
+  _ - _  = IntVal (0)
   (IntVal x) * (IntVal y) = IntVal (x * y)
   (BoolVal x) * (IntVal y) = IntVal (fromEnum x * y)
   (IntVal x) * (BoolVal y) = IntVal (x * fromEnum y)
   (BoolVal x) * (BoolVal y) = IntVal (fromEnum x * fromEnum y)
+  _ * _  = IntVal (0)
   abs (IntVal x) = IntVal (abs x)
   abs (BoolVal x) = IntVal (abs (fromEnum x))
+  abs _ = IntVal (0)
   signum (IntVal x) = IntVal (signum x)
   signum (BoolVal x) = IntVal (signum (fromEnum x))
+  signum _ = IntVal (0)
   fromInteger x = IntVal (fromInteger x)
 
 instance Fractional Value where
@@ -42,6 +48,7 @@ instance Fractional Value where
   (BoolVal x) / (IntVal y) = IntVal (fromEnum x `div` y)
   (IntVal x) / (BoolVal y) = IntVal (x `div` fromEnum y)
   (BoolVal x) / (BoolVal y) = IntVal (fromEnum x `div` fromEnum y)
+  _ / _ = IntVal (0)
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
 
 
@@ -52,9 +59,29 @@ data Operator = Add
               | Eq
               | Less
 
+instance Ord Operator where
+    compare op1 op2 = compare (show op1) (show op2)
+
+instance Show Operator where
+    show Add = "+"
+    show Subtract = "-"
+    show Multiply = "*"
+    show Divide = "/"
+    show Eq = "=="
+    show Less = "<"
+
+instance Eq Operator where
+    Add == Add = True
+    Subtract == Subtract = True
+    Multiply == Multiply = True
+    Divide == Divide = True
+    Eq == Eq = True
+    Less == Less = True
+    _ == _ = False
+
 data Instruction = Push Value
                 | PushArg Int
-                | Call Operator
+                | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
                 | Ret
@@ -107,10 +134,13 @@ isBoolVal (Just (BoolVal _)) = True
 isBoolVal _ = False
 
 exec :: Arg -> Inst -> Stack -> Either String Value
-exec _ (Call _:_) [] = Left "Error: stack is empty"
-exec arg (Call op:xs) stack = case makeOperation op stack of
-    Left err -> Left err
-    Right newstack -> exec arg xs newstack
+exec _ (Call : _) [] = Left "Error: stack is empty"
+exec arg (Call : xs) stack = case Stack.pop stack of
+        (Nothing, _) -> Left "Error: stack is empty"
+        (Just (Op x), stack1)  -> case makeOperation x stack1 of
+               Left err -> Left err
+               Right newstack -> exec arg xs newstack
+        (Just _, _) -> Left "Error: not an Operation or a function"
 exec [] (PushArg _:_) _ = Left "Error: no Arg"
 exec arg (PushArg x:xs) stack
     | x < 0 = Left "Error index out of range"
