@@ -13,22 +13,24 @@ import System.IO (isEOF)
 import System.Exit (exitWith, ExitCode (ExitFailure))
 
 import Compiler
-import qualified AST
+import Data.Maybe (fromMaybe)
 
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
 inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
-    getLine >>= \line -> case parseLisp line new of
+    getLine >>= \line -> case parseTest line new of
         (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
-        (res, stack') -> print res >> inputLoop stack'
+        (Just res, stack') -> writeCompiledAstToFile "test" (compileAst res)
 
 -- | Main
 main :: IO ()
-main =
+main = do
+    -- let c = "(define foo 21)\n(define x 5)\n(define value (* x foo))"
+    -- let ast = parseLisp c []
     -- putStrLn ("VAL" ++ show 5)
-    putStrLn (compileAst (AST.Call "myFunc" [(AST.Value 5), (AST.Value 5), (AST.Boolean True), (AST.Symbol "is_neg")]))
-    -- print "Start of Interpretation Lisp" >> inputLoop []
+    -- putStrLn (compileAst (fst ast))
+    print "Start of Interpretation Lisp" >> inputLoop []
 
 -- main :: IO ()
 -- main = do
