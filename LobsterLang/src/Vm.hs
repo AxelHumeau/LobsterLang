@@ -17,6 +17,7 @@ import Data.Ratio
 data Value = IntVal Int
            | BoolVal Bool
            | Op Operator
+           | Function Func
            deriving (Show, Eq, Ord)
 
 instance Num Value where
@@ -86,9 +87,30 @@ data Instruction = Push Value
                 | JumpIfTrue Int
                 | Ret
 
+instance Show Instruction where
+    show (Push val) = "Push " ++ show val
+    show (PushArg x) = "PushArg " ++ show x
+    show Call = "Call"
+    show (JumpIfFalse x) = "JumpIfFalse " ++ show x
+    show (JumpIfTrue x) = "JumpIfTrue " ++ show x
+    show Ret = "Ret"
+
+instance Ord Instruction where
+    compare inst1 inst2 = compare (show inst1) (show inst2)
+
+instance Eq Instruction where
+    (Push _) == (Push _) = True
+    (PushArg _) == (PushArg _) = True
+    Call == Call = True
+    (JumpIfFalse _) == (JumpIfFalse _) = True
+    (JumpIfTrue _) == (JumpIfTrue _) = True
+    Ret == Ret = True
+    _ == _ = False
+
 type Stack = [Value]
 type Inst = [Instruction]
 type Arg = [Value]
+type Func = [Instruction]
 
 makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
@@ -140,6 +162,9 @@ exec arg (Call : xs) stack = case Stack.pop stack of
         (Just (Op x), stack1)  -> case makeOperation x stack1 of
                Left err -> Left err
                Right newstack -> exec arg xs newstack
+        (Just (Function x), stack1) -> case exec stack1 x [] of
+                Left err -> Left err
+                Right val -> exec arg xs (Stack.push stack1 val)
         (Just _, _) -> Left "Error: not an Operation or a function"
 exec [] (PushArg _:_) _ = Left "Error: no Arg"
 exec arg (PushArg x:xs) stack
