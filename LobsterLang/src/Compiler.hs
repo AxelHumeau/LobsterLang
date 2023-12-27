@@ -8,18 +8,17 @@
 module Compiler (compileAst, writeCompiledAstToFile) where
 
 import AST (Ast (..))
--- import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString as B
-import Data.ByteString.UTF8 as BLU
-import Data.ByteString.Char8 as C8
--- import Data.Binary.Put
 
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import Data.Binary.Put
+import Debug.Trace
 
-data OpCode = PUSH
+data OpCode = CALL | PUSH | ADD
 instance Enum OpCode where
+  fromEnum CALL = 5
   fromEnum PUSH = 10
+  fromEnum ADD = 15
 
 putOpCode :: OpCode -> Put
 putOpCode opCode = putWord8 (fromIntegral (fromEnum opCode))
@@ -42,18 +41,12 @@ putOpCode opCode = putWord8 (fromIntegral (fromEnum opCode))
 -- Call
 -- Ret
 
-compileArg :: Ast -> String
-compileArg (Value value) = show value
-compileArg (Symbol symbol) = symbol
-compileArg (Boolean bool) = show bool
-
-compileArgs :: [Ast] -> String
-compileArgs [] = ""
-compileArgs [x] = compileArg x
-compileArgs (x:xs) = compileArg x ++ " " ++ compileArgs xs
+compileArgs :: [Ast] -> Put
+compileArgs [x] = compileAst x
+compileArgs (x:xs) = compileAst x >> compileArgs xs
 
 compileAst :: Ast -> Put
--- compileAst (Call "+" args) = putWord "ADD " ++ compileArgs args
+compileAst (Call "+" args) = compileArgs args >> trace "ADD" putOpCode ADD >> trace "CALL" putOpCode CALL
 -- compileAst (Call "-" args) = "SUB " ++ compileArgs args
 -- compileAst (Call "*" args) = "MUL " ++ compileArgs args
 -- compileAst (Call "/" args) = "DIV " ++ compileArgs args
@@ -61,9 +54,8 @@ compileAst :: Ast -> Put
 -- compileAst (Call funcName args) = "CALL " ++ funcName ++ " " ++ compileArgs args
 -- compileAst (Define symbolName (Call funcName args)) = "CALLR " ++ funcName ++ " " ++ compileArgs args ++ " " ++ symbolName
 -- compileAst (Define symbolName value) = putWord8 255
--- "DEF " ++ symbolName ++ " " ++ compileArg value
-compileAst (Value value) = putOpCode PUSH >> putInt32le (fromIntegral (value::Int)) -- push/10/0a arg0::i32 # push a 32bit int value on the stack
+-- "DEF " ++ symbolName ++ " " ++ compile value
+compileAst (Value value) = putOpCode PUSH >> trace ("PUSH " ++ show value) putInt32le (fromIntegral (value::Int))
 
 writeCompiledAstToFile :: String -> Put -> IO()
--- writeCompiledAstToFile filepath compiledAst = B.writeFile filepath (C8.pack compiledAst)
-writeCompiledAstToFile filepath compiledAst = B.writeFile filepath (B.concat $ BL.toChunks $ runPut compiledAst)
+writeCompiledAstToFile filepath compiledAst = BS.writeFile filepath (BS.concat $ BSL.toChunks $ runPut compiledAst)
