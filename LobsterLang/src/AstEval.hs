@@ -86,6 +86,13 @@ evalAst stack (Cond ast a1 a2)
   where
     condEval = fst (evalAst stack ast)
 
+-- | Evaluate the 'Ast' for a given binary value operator
+-- such as '+', '-', or '*'.
+-- Takes a function that takes two 'Int' and return one 'Int',
+-- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return a tuple containing the new stack post evaluation, and the
+-- application of the function onto the values inside the given 'Ast'
+-- or 'Nothing' in case of error
 evalBiValOp :: (Int -> Int -> Int) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
 evalBiValOp _ stack (Call _ [AST.Boolean _, _]) = (Nothing, stack)
 evalBiValOp _ stack (Call _ [_, AST.Boolean _]) = (Nothing, stack)
@@ -96,6 +103,13 @@ evalBiValOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
 evalBiValOp _ stack (Call _ _) = (Nothing, stack)
 evalBiValOp _ stack _ = (Nothing, stack)
 
+-- | Evaluate the 'Ast' for a given binary boolean operator
+-- such as '&&' or '||'.
+-- Takes a function that takes two 'Bool' and return one 'Bool',
+-- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return a tuple containing the new stack post evaluation, and the
+-- application of the function onto the booleans inside the given 'Ast'
+-- or 'Nothing' in case of error
 evalBiBoolOp :: (Bool -> Bool -> Bool) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
 evalBiBoolOp _ stack (Call _ [AST.Value _, _]) = (Nothing, stack)
 evalBiBoolOp _ stack (Call _ [_, AST.Value _]) = (Nothing, stack)
@@ -106,6 +120,13 @@ evalBiBoolOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
 evalBiBoolOp _ stack (Call _ _) = (Nothing, stack)
 evalBiBoolOp _ stack _ = (Nothing, stack)
 
+-- | Evaluate the 'Ast' for a given binary comparison operator
+-- such as '==', '>', or '<='.
+-- Takes a function that takes two 'Int' and return one 'Bool',
+-- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return a tuple containing the new stack post evaluation, and the
+-- application of the function onto the values inside the given 'Ast'
+-- or 'Nothing' in case of error
 evalBiCompValOp :: (Int -> Int -> Bool) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
 evalBiCompValOp _ stack (Call _ [AST.Boolean _, _]) = (Nothing, stack)
 evalBiCompValOp _ stack (Call _ [_, AST.Boolean _]) = (Nothing, stack)
@@ -116,5 +137,9 @@ evalBiCompValOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
 evalBiCompValOp _ stack (Call _ _) = (Nothing, stack)
 evalBiCompValOp _ stack _ = (Nothing, stack)
 
+-- | Evaluate the list of 'Ast'
+-- Takes the stack as a '[ScopeMb]' and a '[Ast]' to evaluate
+-- Returns a list of the results of the evaluation or 'Nothing'
+-- in case of error.
 evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
 evalSubParams stack = mapM (fst . evalAst stack)
