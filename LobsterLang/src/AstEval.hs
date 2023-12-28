@@ -50,6 +50,11 @@ evalAst stack (Call "/" astList) = evalBinaryValueOp (div) stack (Call "/" astLi
 evalAst stack (Call "%" [_, AST.Value 0]) = (Nothing, stack)
 evalAst stack (Call "%" astList) = evalBinaryValueOp (mod) stack (Call "%" astList)
 evalAst stack (Call "==" astList) = evalBinaryCompareValueOp (==) stack (Call "==" astList)
+evalAst stack (Call "!=" astList) = evalBinaryCompareValueOp (/=) stack (Call "!=" astList)
+evalAst stack (Call "<" astList) = evalBinaryCompareValueOp (<) stack (Call "<" astList)
+evalAst stack (Call "<=" astList) = evalBinaryCompareValueOp (<=) stack (Call "<=" astList)
+evalAst stack (Call ">" astList) = evalBinaryCompareValueOp (>) stack (Call ">" astList)
+evalAst stack (Call ">=" astList) = evalBinaryCompareValueOp (>=) stack (Call ">=" astList)
 evalAst stack (Call name params)
   | result == (Nothing, stack) = result
   | otherwise = Data.Bifunctor.second clearScope result
