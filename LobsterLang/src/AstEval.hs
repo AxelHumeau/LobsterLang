@@ -49,13 +49,7 @@ evalAst stack (Call "/" [_, AST.Value 0]) = (Nothing, stack)
 evalAst stack (Call "/" astList) = evalBinaryValueOp (div) stack (Call "/" astList)
 evalAst stack (Call "%" [_, AST.Value 0]) = (Nothing, stack)
 evalAst stack (Call "%" astList) = evalBinaryValueOp (mod) stack (Call "%" astList)
-evalAst stack (Call "==" [AST.Boolean _, _]) = (Nothing, stack)
-evalAst stack (Call "==" [_, AST.Boolean _]) = (Nothing, stack)
-evalAst stack (Call "==" [AST.Value a, AST.Value b]) =
-  (Just (AST.Boolean (a == b)), stack)
-evalAst stack (Call "==" [ast1, ast2]) = maybe (Nothing, stack)
-  (evalAst stack . Call "==") (evalSubParams stack [ast1, ast2])
-evalAst stack (Call "==" _) = (Nothing, stack)
+evalAst stack (Call "==" astList) = evalBinaryCompareValueOp (==) stack (Call "==" astList)
 evalAst stack (Call name params)
   | result == (Nothing, stack) = result
   | otherwise = Data.Bifunctor.second clearScope result
@@ -93,6 +87,16 @@ evalBinaryValueOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
   (evalAst stack  . Call op) (evalSubParams stack [ast1, ast2])
 evalBinaryValueOp _ stack (Call _ _) = (Nothing, stack)
 evalBinaryValueOp _ stack _ = (Nothing, stack)
+
+evalBinaryCompareValueOp :: (Int -> Int -> Bool) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
+evalBinaryCompareValueOp _ stack (Call _ [AST.Boolean _, _]) = (Nothing, stack)
+evalBinaryCompareValueOp _ stack (Call _ [_, AST.Boolean _]) = (Nothing, stack)
+evalBinaryCompareValueOp f stack  (Call _ [AST.Value a, AST.Value b]) =
+  (Just (AST.Boolean (f a b)), stack)
+evalBinaryCompareValueOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
+  (evalAst stack  . Call op) (evalSubParams stack [ast1, ast2])
+evalBinaryCompareValueOp _ stack (Call _ _) = (Nothing, stack)
+evalBinaryCompareValueOp _ stack _ = (Nothing, stack)
 
 evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
 evalSubParams stack = mapM (fst . evalAst stack)
