@@ -69,10 +69,24 @@ spec = do
         -- Boolean operators
         it "Check valid operation &&" $ do
             evalAst [] (Call "&&" [AST.Boolean True, AST.Boolean False]) `shouldBe` (Just (AST.Boolean False), [])
+        it "Check valid operation && 2" $ do
+            evalAst [] (Call "&&" [AST.Boolean False, AST.Boolean True]) `shouldBe` (Just (AST.Boolean False), [])
         it "Check valid operation ||" $ do
             evalAst [] (Call "||" [AST.Boolean True, AST.Boolean False]) `shouldBe` (Just (AST.Boolean True), [])
+        it "Check valid operation || 2" $ do
+            evalAst [] (Call "||" [AST.Boolean False, AST.Boolean True]) `shouldBe` (Just (AST.Boolean True), [])
         it "Check valid operation ^^ (xor)" $ do
             evalAst [] (Call "^^" [AST.Boolean True, AST.Boolean True]) `shouldBe` (Just (AST.Boolean False), [])
+        it "Check valid operation ^^ (xor) 2" $ do
+            evalAst [] (Call "^^" [AST.Boolean True, AST.Boolean False]) `shouldBe` (Just (AST.Boolean True), [])
+        it "Check valid operation ^^ (xor) 3" $ do
+            evalAst [] (Call "^^" [AST.Boolean False, AST.Boolean True]) `shouldBe` (Just (AST.Boolean True), [])
+        it "Check valid operation ! (not)" $ do
+            evalAst [] (Call "!" [AST.Boolean False]) `shouldBe` (Just (AST.Boolean True), [])
+        it "Check valid operation ! (not) 2" $ do
+            evalAst [] (Call "!" [AST.Boolean True]) `shouldBe` (Just (AST.Boolean False), [])
+        it "Check invalid operation ! (not)" $ do
+            evalAst [] (Call "!" [AST.Value 5]) `shouldBe` (Nothing, [])
         it "Check invalid value comparison binary operation (wrong type)" $ do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Boolean True, AST.Value 8]) `shouldBe` (Nothing, [])
         it "Check invalid value comparison binary operation (wrong type 2)" $ do

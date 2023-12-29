@@ -64,6 +64,8 @@ evalAst stack (Call ">=" astList) = evalBiCompValOp (>=) stack (Call ">=" astLis
 evalAst stack (Call "&&" astList) = evalBiBoolOp (&&) stack (Call "&&" astList)
 evalAst stack (Call "||" astList) = evalBiBoolOp (||) stack (Call "||" astList)
 evalAst stack (Call "^^" astList) = evalBiBoolOp (\a b -> (a || b) && not (a && b)) stack (Call "||" astList)
+evalAst stack (Call "!" [AST.Boolean b]) = (Just (AST.Boolean (not b)), stack)
+evalAst stack (Call "!" _) = (Nothing, stack)
 evalAst stack (Call name params)
   | result == (Nothing, stack) = result
   | otherwise = Data.Bifunctor.second clearScope result
