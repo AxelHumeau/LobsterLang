@@ -42,6 +42,7 @@ data Parser a = Parser {
 
 }
 
+-- | Instance Functor of the data Parser
 instance Functor Parser where
     fmap fct parser =
         Parser
@@ -51,6 +52,7 @@ instance Functor Parser where
                 Just (a, b) -> Just (fct a, b)
         )
 
+-- | Instance Applicative of the data Parser
 instance Applicative Parser where
     pure result = Parser (\_ -> Just (result, ""))
 
@@ -64,6 +66,7 @@ instance Applicative Parser where
                     Just (a', b') -> Just (a a', b')
         )
 
+-- | Instance Alternative of the data Parser
 instance Alternative Parser where
     empty = Parser (const Nothing)
     (<|>) parserA parserB =
@@ -75,6 +78,7 @@ instance Alternative Parser where
         )
 
 
+-- | Instance Monad of the data Parser
 instance Monad Parser where
     (>>=) :: Parser a -> (a -> Parser b) -> Parser b
     a >>= b =
@@ -85,6 +89,9 @@ instance Monad Parser where
                 Just (res, s') -> runParser (b res) s'
         )
 
+-- | Parse a character c
+-- Takes the character that need to be parsed
+-- Returns a data Parser that contain the character and the rest of the string
 parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
@@ -92,9 +99,15 @@ parseChar c = Parser (f c)
         f char (x:xs) = if char == x then Just (char, xs) else Nothing
         f _ _ = Nothing
 
+-- | Parse with the first or the second parser
+-- Takes two parsers
+-- Returns either the first parser or the second parser
 parseOr :: Parser a -> Parser a -> Parser a
 parseOr parserA parserB = parserA <|> parserB
 
+-- | Parse with the first and the second parser
+-- Takes two parsers
+-- Returns either the first parser then use result for the second parser
 parseAnd :: Parser a -> Parser b -> Parser (a, b)
 parseAnd parserA parserB = Parser (f parserA parserB)
     where
@@ -104,6 +117,9 @@ parseAnd parserA parserB = Parser (f parserA parserB)
             Just resultA ->
                 runParser ((\b -> (fst resultA, b)) <$> pB) (snd resultA)
 
+-- | Parse with function after the two parsers
+-- Takes two parsers and a function
+-- Returns the result of the function with the result of the parseAnd
 parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
 parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
     where
@@ -112,6 +128,9 @@ parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
         Nothing -> Nothing
         Just ((a, b), s') -> Just (f'' a b, s')
 
+-- | Parse with a parser
+-- Takes a parser
+-- Returns the application of the parser (if nothing, returns an empty list)
 parseMany :: Parser a -> Parser [a]
 parseMany parserA = Parser (f parserA)
     where
@@ -122,9 +141,13 @@ parseMany parserA = Parser (f parserA)
                 Nothing -> Just ([a], b)
                 Just (a', b') -> Just (a : a', b')
 
+-- | Parse with a parser
+-- Takes a parser
+-- Returns the application of the parser at least one time or Returns Nothing
 parseSome :: Parser a -> Parser [a]
 parseSome parser = (:) <$> parser <*> parseMany parser
 
+-- | Return a data Parser that parse a UInt
 parseUInt :: Parser Int
 parseUInt = Parser f
     where
@@ -134,15 +157,18 @@ parseUInt = Parser f
             Just ([], _) -> Nothing
             Just (a, b) -> Just (read a :: Int, b)
 
+-- | Return a data Parser that parse a '-' or '+'
 parseSign :: Parser Char
 parseSign = parseChar '-' <|> parseChar '+'
 
+-- | Return a data Parser that parse a digit
 parseDigit :: Parser Char
 parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|>
              parseChar '3' <|> parseChar '4' <|> parseChar '5' <|>
              parseChar '6' <|> parseChar '7' <|> parseChar '8' <|>
              parseChar '9'
 
+-- | Return a data Parser that parse a Int
 parseInt :: Parser Int
 parseInt = Parser f
     where
@@ -150,21 +176,29 @@ parseInt = Parser f
         f ('-':xs) = runParser ((\x -> -x) <$> parseUInt) xs
         f s = runParser parseUInt s
 
+-- | Return a data Parser that parse multiple space
 parseSpace :: Parser [Char]
 parseSpace = parseMany (parseChar ' ')
 
+-- | Parse with a parser and, if possible with a space
+-- Return a Parser that parse element with the given parser and, if possible with multiple space
 parseElem :: Parser a -> Parser a
 parseElem parser = parseAndWith (\x _ -> x) parser parseSpace <|> parser
 
+-- | Return a data Parser that parse a String
 parseString :: Parser String
 parseString = parseSpace *> parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z'] ++ "-*/%+#")) <* parseSpace
 
+-- | Return a data Parser that parse a String as a Symbol
 parseSymbol :: Parser SExpr
 parseSymbol = Symbol <$> parseElem parseString
 
+-- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser SExpr
 parseValue = Value <$> parseElem parseInt
 
+-- | Parse a list of element
+-- Return a Parser of list `element` that start with a '(' and end with a ')'
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
@@ -172,6 +206,8 @@ parseList parser = parseStart *> parseListValue <* parseEnd
         parseListValue = parseSpace *> parseMany (parseElem parser)
         parseStart = parseSpace *> parseChar '('
 
+-- | Parse any characterfrom a String
+-- Return a Parser that parse every character from a String
 parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
     where
@@ -186,6 +222,7 @@ parseAnyChar s = Parser (f s)
                     [] -> '\0'
                     _ -> head xs
 
+-- | Return a Parser that parse a Bool (#f or #t)
 parseBool :: Parser Bool
 parseBool = parseElem (Parser f)
     where
@@ -194,12 +231,17 @@ parseBool = parseElem (Parser f)
         f ('#':'t':' ':xs) = Just (True, xs)
         f _ = Nothing
 
+-- | Return a Parser that parse a SExpr
 parseSExpr :: Parser SExpr
 parseSExpr = List <$> parseList (parseSpace *> parseValue <|> parseSymbol <|> parseSpace *> parseSExpr)
+            <|> parseSymbol
+            <|> parseValue
 
-parseLisp :: String -> (Maybe AST.Ast, [Scope.ScopeMb])
-parseLisp s = case runParser parseSExpr s of
+-- | Return a Result that contain the evaluation of our Lisp String
+-- Takes as parameter the string that need to be evaluated and the Stack (Environment)
+parseLisp :: String -> [Scope.ScopeMb] -> (Maybe AST.Ast, [Scope.ScopeMb])
+parseLisp s stack = case runParser parseSExpr s of
     Nothing -> (Nothing, [])
     Just (res, _) -> case AstEval.sexprToAst res of
         Nothing -> (Nothing, [])
-        Just value -> AstEval.evalAst [] value
+        Just value -> AstEval.evalAst stack value
