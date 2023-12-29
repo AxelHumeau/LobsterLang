@@ -5,7 +5,13 @@
 -- AstEval
 -}
 
-module AstEval (sexprToAst, evalAst) where
+module AstEval (
+  sexprToAst,
+  evalAst,
+  evalBiValOp,
+  evalBiBoolOp,
+  evalBiCompValOp
+  ) where
 
 import AST
 import qualified Data.Bifunctor
