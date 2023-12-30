@@ -5,17 +5,17 @@
 -- AstEval
 -}
 
-module AstEval (
-  sexprToAst,
-  evalAst,
-  evalBiValOp,
-  evalBiBoolOp,
-  evalBiCompValOp
-  ) where
+module AstEval
+  ( sexprToAst,
+    evalAst,
+    evalBiValOp,
+    evalBiBoolOp,
+    evalBiCompValOp,
+  )
+where
 
 import AST
 import qualified Data.Bifunctor
-import Data.Maybe
 import SExpr
 import Scope
 
@@ -37,24 +37,24 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 -- Returns a tuple containing the resulting Ast
 -- (or Nothing if an error occured or a non evaluable Ast is given)
 -- and the stack after evaluation.
-evalAst :: [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
+evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalAst stack (Define s (FunctionValue params ast Nothing)) =
-  (Nothing, addFuncToScope stack s params ast)
-evalAst stack (Define s v) = (Nothing, addVarToScope stack s v)
-evalAst stack (AST.Value i) = (Just (AST.Value i), stack)
+  (Right Nothing, addFuncToScope stack s params ast)
+evalAst stack (Define s v) = (Right Nothing, addVarToScope stack s v)
+evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s) =
   maybe
-    (Nothing, stack)
+    (Left ("Variable '" ++ s ++ "' doesn't exist"), stack)
     (evalAst stack)
     (getVarInScope stack s)
-evalAst stack (Boolean b) = (Just (Boolean b), stack)
+evalAst stack (Boolean b) = (Right (Just (Boolean b)), stack)
 evalAst stack (Call "+" astList) = evalBiValOp (+) stack (Call "+" astList)
 evalAst stack (Call "-" astList) = evalBiValOp (-) stack (Call "-" astList)
 evalAst stack (Call "*" astList) = evalBiValOp (*) stack (Call "*" astList)
-evalAst stack (Call "/" [_, AST.Value 0]) = (Nothing, stack)
-evalAst stack (Call "/" astList) = evalBiValOp (div) stack (Call "/" astList)
-evalAst stack (Call "%" [_, AST.Value 0]) = (Nothing, stack)
-evalAst stack (Call "%" astList) = evalBiValOp (mod) stack (Call "%" astList)
+evalAst stack (Call "/" [_, AST.Value 0]) = (Left "Cannot divide by zero", stack)
+evalAst stack (Call "/" astList) = evalBiValOp div stack (Call "/" astList)
+evalAst stack (Call "%" [_, AST.Value 0]) = (Left "Cannot divide by zero", stack)
+evalAst stack (Call "%" astList) = evalBiValOp mod stack (Call "%" astList)
 evalAst stack (Call "==" astList) = evalBiCompValOp (==) stack (Call "==" astList)
 evalAst stack (Call "!=" astList) = evalBiCompValOp (/=) stack (Call "!=" astList)
 evalAst stack (Call "<" astList) = evalBiCompValOp (<) stack (Call "<" astList)
@@ -64,35 +64,34 @@ evalAst stack (Call ">=" astList) = evalBiCompValOp (>=) stack (Call ">=" astLis
 evalAst stack (Call "&&" astList) = evalBiBoolOp (&&) stack (Call "&&" astList)
 evalAst stack (Call "||" astList) = evalBiBoolOp (||) stack (Call "||" astList)
 evalAst stack (Call "^^" astList) = evalBiBoolOp (\a b -> (a || b) && not (a && b)) stack (Call "||" astList)
-evalAst stack (Call "!" [AST.Boolean b]) = (Just (AST.Boolean (not b)), stack)
-evalAst stack (Call "!" _) = (Nothing, stack)
-evalAst stack (Call name params)
-  | result == (Nothing, stack) = result
-  | otherwise = Data.Bifunctor.second clearScope result
-  where
-    nsAndAst = maybe (stack, Nothing) (callFunc stack name)
-      (evalSubParams stack params)
-    result = maybe (Nothing, stack) (evalAst (fst nsAndAst)) (snd nsAndAst)
-evalAst stack (FunctionValue _ _ Nothing) = (Nothing, stack)
-evalAst stack (FunctionValue params ast (Just asts))
-  | isNothing (fst result) = (Nothing, stack)
-  | otherwise = Data.Bifunctor.second clearScope result
-  where
-    newStack = maybe stack (addVarsToScope (beginScope stack) params)
-      (evalSubParams stack asts)
-    result = evalAst newStack ast
+evalAst stack (Call "!" [AST.Boolean b]) = (Right (Just (AST.Boolean (not b))), stack)
+-- TODO: add ! support for evaluation of sub parameters
+evalAst stack (Call "!" [_]) = (Left "Parameter of unary operator '!' isn't a boolean", stack)
+evalAst stack (Call "!" _) = (Left "Invalid number of parameter for unary operator '!'", stack)
+evalAst stack (Call name params) = case evalSubParams stack params of
+  Left err -> (Left err, stack)
+  Right asts -> case maybe (Left ("No evaluation in one or more parameters of '" ++ name ++ "'"), stack) (callFunc stack name) asts of
+    (Left err2, _) -> (Left err2, stack)
+    (Right fAst, newStack) -> maybe (Left ("No evaluation in function '" ++ name ++ "'"), newStack) (evalAst newStack) fAst
+evalAst stack (FunctionValue _ _ Nothing) = (Right Nothing, stack) -- TODO: will change when function are treated as variables
+evalAst stack (FunctionValue params ast (Just asts)) = case evalSubParams stack asts of
+  Left err -> (Left err, stack)
+  Right mEAsts -> case mEAsts of
+    Nothing -> (Left "No evaluation in one or more parameters of lambda", stack)
+    Just eAsts -> Data.Bifunctor.second clearScope (evalAst (addVarsToScope (beginScope stack) params eAsts) ast)
 evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
   | b = evalAst stack a1
   | otherwise = evalAst stack a2
 evalAst stack (Cond (AST.Boolean b) a1 Nothing)
   | b = evalAst stack a1
-  | otherwise = (Nothing, stack)
-evalAst stack (Cond ast a1 a2)
-  | isNothing condEval = (Nothing, stack)
-  | fromJust condEval == ast = (Nothing, stack)
-  | otherwise = evalAst stack (Cond (fromJust condEval) a1 a2)
-  where
-    condEval = fst (evalAst stack ast)
+  | otherwise = (Right Nothing, stack)
+evalAst stack (Cond ast a1 a2) = case fst (evalAst stack ast) of
+  Left err -> (Left err, stack)
+  Right mEAst -> case mEAst of
+    Nothing -> (Left "No evaluation in condition", stack)
+    Just eAst
+      | eAst == ast -> (Left "Condition isn't a boolean", stack)
+      | otherwise -> evalAst stack (Cond eAst a1 a2)
 
 -- | Evaluate the 'Ast' for a given binary value operator
 -- such as '+', '-', or '*'.
@@ -101,15 +100,20 @@ evalAst stack (Cond ast a1 a2)
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the values inside the given 'Ast'
 -- or 'Nothing' in case of error
-evalBiValOp :: (Int -> Int -> Int) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
-evalBiValOp _ stack (Call _ [AST.Boolean _, _]) = (Nothing, stack)
-evalBiValOp _ stack (Call _ [_, AST.Boolean _]) = (Nothing, stack)
-evalBiValOp f stack  (Call _ [AST.Value a, AST.Value b]) =
-  (Just (AST.Value (f a b)), stack)
-evalBiValOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
-  (evalAst stack  . Call op) (evalSubParams stack [ast1, ast2])
-evalBiValOp _ stack (Call _ _) = (Nothing, stack)
-evalBiValOp _ stack _ = (Nothing, stack)
+evalBiValOp :: (Int -> Int -> Int) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
+evalBiValOp _ stack (Call op [AST.Boolean _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiValOp _ stack (Call op [_, AST.Boolean _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiValOp f stack (Call _ [AST.Value a, AST.Value b]) =
+  (Right (Just (AST.Value (f a b))), stack)
+evalBiValOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
+  Left err -> (Left err, stack)
+  Right asts ->
+    maybe
+      (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
+      (evalAst stack . Call op)
+      asts
+evalBiValOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
+evalBiValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
 -- | Evaluate the 'Ast' for a given binary boolean operator
 -- such as '&&' or '||'.
@@ -118,15 +122,20 @@ evalBiValOp _ stack _ = (Nothing, stack)
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the booleans inside the given 'Ast'
 -- or 'Nothing' in case of error
-evalBiBoolOp :: (Bool -> Bool -> Bool) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
-evalBiBoolOp _ stack (Call _ [AST.Value _, _]) = (Nothing, stack)
-evalBiBoolOp _ stack (Call _ [_, AST.Value _]) = (Nothing, stack)
-evalBiBoolOp f stack  (Call _ [AST.Boolean a, AST.Boolean b]) =
-  (Just (AST.Boolean (f a b)), stack)
-evalBiBoolOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
-  (evalAst stack  . Call op) (evalSubParams stack [ast1, ast2])
-evalBiBoolOp _ stack (Call _ _) = (Nothing, stack)
-evalBiBoolOp _ stack _ = (Nothing, stack)
+evalBiBoolOp :: (Bool -> Bool -> Bool) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
+evalBiBoolOp _ stack (Call op [AST.Value _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiBoolOp _ stack (Call op [_, AST.Value _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiBoolOp f stack (Call _ [AST.Boolean a, AST.Boolean b]) =
+  (Right (Just (AST.Boolean (f a b))), stack)
+evalBiBoolOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
+  Left err -> (Left err, stack)
+  Right asts ->
+    maybe
+      (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
+      (evalAst stack . Call op)
+      asts
+evalBiBoolOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
+evalBiBoolOp _ stack _ = (Left "Ast isn't a Call", stack)
 
 -- | Evaluate the 'Ast' for a given binary comparison operator
 -- such as '==', '>', or '<='.
@@ -135,19 +144,26 @@ evalBiBoolOp _ stack _ = (Nothing, stack)
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the values inside the given 'Ast'
 -- or 'Nothing' in case of error
-evalBiCompValOp :: (Int -> Int -> Bool) -> [ScopeMb] -> Ast -> (Maybe Ast, [ScopeMb])
-evalBiCompValOp _ stack (Call _ [AST.Boolean _, _]) = (Nothing, stack)
-evalBiCompValOp _ stack (Call _ [_, AST.Boolean _]) = (Nothing, stack)
-evalBiCompValOp f stack  (Call _ [AST.Value a, AST.Value b]) =
-  (Just (AST.Boolean (f a b)), stack)
-evalBiCompValOp _ stack  (Call op [ast1, ast2]) = maybe (Nothing, stack)
-  (evalAst stack  . Call op) (evalSubParams stack [ast1, ast2])
-evalBiCompValOp _ stack (Call _ _) = (Nothing, stack)
-evalBiCompValOp _ stack _ = (Nothing, stack)
+evalBiCompValOp :: (Int -> Int -> Bool) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
+evalBiCompValOp _ stack (Call op [AST.Boolean _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiCompValOp _ stack (Call op [_, AST.Boolean _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiCompValOp f stack (Call _ [AST.Value a, AST.Value b]) =
+  (Right (Just (AST.Boolean (f a b))), stack)
+evalBiCompValOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
+  Left err -> (Left err, stack)
+  Right asts ->
+    maybe
+      (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
+      (evalAst stack . Call op)
+      asts
+evalBiCompValOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
+evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
 -- | Evaluate the list of 'Ast'
 -- Takes the stack as a '[ScopeMb]' and a '[Ast]' to evaluate
 -- Returns a list of the results of the evaluation or 'Nothing'
 -- in case of error.
-evalSubParams :: [ScopeMb] -> [Ast] -> Maybe [Ast]
-evalSubParams stack = mapM (fst . evalAst stack)
+evalSubParams :: [ScopeMb] -> [Ast] -> Either String (Maybe [Ast])
+evalSubParams stack astList = case mapM (fst . evalAst stack) astList of
+  Left err -> Left err
+  Right asts -> Right (sequence asts)

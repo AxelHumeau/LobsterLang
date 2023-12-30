@@ -49,10 +49,10 @@ addFuncToScope :: [ScopeMb] -> String -> [String] -> Ast -> [ScopeMb]
 addFuncToScope stack name params ast = push stack (Function name params ast)
 
 -- | Call a function from the current scope
-callFunc :: [ScopeMb] -> String -> [Ast] -> ([ScopeMb], Maybe Ast)
+callFunc :: [ScopeMb] -> String -> [Ast] -> (Either String (Maybe Ast), [ScopeMb])
 callFunc stack name asts
-  | isNothing func || null newStack = (stack, Nothing)
-  | otherwise = (newStack, getAst =<< func)
+  | isNothing func = (Left ("Function '" ++ name ++ "' not found"), stack)
+  | otherwise = (Right (getAst (fromJust func)), newStack)
   where
     func = seek (isSearchedFunc name) stack
     newStack = createFuncVar (beginScope stack)

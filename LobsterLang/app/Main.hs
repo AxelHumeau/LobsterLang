@@ -14,11 +14,12 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
-inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
+inputLoop new = isEOF >>= \end -> if end then putStrLn "End of Interpretation GLaDOS" else
     getLine >>= \line -> case parseLisp line new of
-        (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
-        (res, stack') -> print res >> inputLoop stack'
+        (Left err, _) -> putStrLn ("\ESC[31m\ESC[1mThe lobster is angry: " ++ err ++ "\ESC[0m") >> inputLoop new
+        (Right Nothing, stack) -> inputLoop stack
+        (Right (Just res), stack') -> print res >> inputLoop stack'
 
 -- | Main
 main :: IO ()
-main =  print "Start of Interpretation Lisp" >> inputLoop []
+main =  putStrLn "Start of Interpretation Lisp" >> inputLoop []
