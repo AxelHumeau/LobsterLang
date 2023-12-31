@@ -52,18 +52,27 @@ addFuncToScope stack name params ast = push stack (Function name params ast)
 callFunc :: [ScopeMb] -> String -> [Ast] -> (Either String (Maybe Ast), [ScopeMb])
 callFunc stack name asts
   | isNothing func = (Left ("Function '" ++ name ++ "' not found"), stack)
+  | null newStack = (Left ("Function '" ++ name ++ "' takes " ++
+    show (length (getFuncParamNames (fromJust func))) ++
+    " parameters, got " ++ show (length asts)), stack)
   | otherwise = (Right (getAst (fromJust func)), newStack)
   where
     func = seek (isSearchedFunc name) stack
-    newStack = createFuncVar (beginScope stack)
-      (maybe [] getFuncParamNames func) asts
+    newStack =
+      createFuncVar
+        (beginScope stack)
+        (maybe [] getFuncParamNames func)
+        asts
 
 createFuncVar :: [ScopeMb] -> [String] -> [Ast] -> [ScopeMb]
 createFuncVar stack [] [] = stack
 createFuncVar _ [] _ = []
 createFuncVar _ _ [] = []
-createFuncVar stack (name : nxs) (ast : axs) = createFuncVar
-  (addVarToScope stack name ast) nxs axs
+createFuncVar stack (name : nxs) (ast : axs) =
+  createFuncVar
+    (addVarToScope stack name ast)
+    nxs
+    axs
 
 -- | Add a Variable to the stack with its name as a 'String'
 -- and its value by an 'Ast'
@@ -75,8 +84,10 @@ addVarToScope stack s v = push stack (Variable s v)
 addVarsToScope :: [ScopeMb] -> [String] -> [Ast] -> [ScopeMb]
 addVarsToScope stack [] _ = stack
 addVarsToScope stack _ [] = stack
-addVarsToScope stack (s:xs1) (v:xs2) = push (addVarsToScope stack xs1 xs2)
-  (Variable s v)
+addVarsToScope stack (s : xs1) (v : xs2) =
+  push
+    (addVarsToScope stack xs1 xs2)
+    (Variable s v)
 
 -- | Get the value contained in the variable given by name as a 'String',
 -- return 'Nothing' if the variable don't exist or 'Just' its value

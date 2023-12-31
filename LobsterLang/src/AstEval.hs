@@ -71,14 +71,17 @@ evalAst stack (Call "!" _) = (Left "Invalid number of parameter for unary operat
 evalAst stack (Call name params) = case evalSubParams stack params of
   Left err -> (Left err, stack)
   Right asts -> case maybe (Left ("No evaluation in one or more parameters of '" ++ name ++ "'"), stack) (callFunc stack name) asts of
-    (Left err2, _) -> (Left err2, stack)
-    (Right fAst, newStack) -> Data.Bifunctor.second clearScope (
-      maybe
-      (Left ("No evaluation in function '" ++ name ++ "'"), newStack)
-      (evalAst newStack)
-      fAst)
+    (Left err', _) -> (Left err', stack)
+    (Right fAst, newStack) -> maybe
+      (Left ("Function '" ++ name ++ "' doesn't exist"), stack)
+      (Data.Bifunctor.second clearScope . evalAst newStack)
+      fAst
 evalAst stack (FunctionValue _ _ Nothing) = (Right Nothing, stack) -- TODO: will change when function are treated as variables
-evalAst stack (FunctionValue params ast (Just asts)) = case evalSubParams stack asts of
+evalAst stack (FunctionValue params ast (Just asts))
+  | length params /= length asts = (Left ("Lambda takes " ++
+    show (length params) ++ " parameters, got " ++
+    show (length asts)), stack)
+  | otherwise = case evalSubParams stack asts of
   Left err -> (Left err, stack)
   Right mEAsts -> case mEAsts of
     Nothing -> (Left "No evaluation in one or more parameters of lambda", stack)
