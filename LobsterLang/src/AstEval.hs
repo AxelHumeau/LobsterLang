@@ -34,8 +34,9 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 
 -- | Evaluate a 'Ast'.
 -- Takes a stack representing variables and the Ast to evaluate.
--- Returns a tuple containing the resulting Ast
--- (or Nothing if an error occured or a non evaluable Ast is given)
+-- Returns a tuple containing either the resulting Ast
+-- (can be 'Nothing' for no evaluation is possible)
+-- or a 'String' containing the error message in case of error
 -- and the stack after evaluation.
 evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalAst stack (Define s (FunctionValue params ast Nothing)) =
@@ -106,7 +107,7 @@ evalAst stack (Cond ast a1 a2) = case fst (evalAst stack ast) of
 -- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the values inside the given 'Ast'
--- or 'Nothing' in case of error
+-- or a 'String' containing the error message in case of error
 evalBiValOp :: (Int -> Int -> Int) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalBiValOp _ stack (Call op [AST.Boolean _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiValOp _ stack (Call op [_, AST.Boolean _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
@@ -129,7 +130,7 @@ evalBiValOp _ stack _ = (Left "Ast isn't a Call", stack)
 -- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the booleans inside the given 'Ast'
--- or 'Nothing' in case of error
+-- or a 'String' containing the error message in case of error
 evalBiBoolOp :: (Bool -> Bool -> Bool) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalBiBoolOp _ stack (Call op [AST.Value _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiBoolOp _ stack (Call op [_, AST.Value _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
@@ -152,7 +153,7 @@ evalBiBoolOp _ stack _ = (Left "Ast isn't a Call", stack)
 -- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the values inside the given 'Ast'
--- or 'Nothing' in case of error
+-- or a 'String' containing the error message in case of error
 evalBiCompValOp :: (Int -> Int -> Bool) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalBiCompValOp _ stack (Call op [AST.Boolean _, _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiCompValOp _ stack (Call op [_, AST.Boolean _]) = (Left ("One or more parameters of binary operator '" ++ op ++ "' is invalid"), stack)
@@ -171,8 +172,9 @@ evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
 -- | Evaluate the list of 'Ast'
 -- Takes the stack as a '[ScopeMb]' and a '[Ast]' to evaluate
--- Returns a list of the results of the evaluation or 'Nothing'
--- in case of error.
+-- Returns a list of the results of the evaluation
+-- (can be 'Nothing' if one 'Ast' isn't evaluable)
+-- or a 'String' containing the error message in case of error.
 evalSubParams :: [ScopeMb] -> [Ast] -> Either String (Maybe [Ast])
 evalSubParams stack astList = case mapM (fst . evalAst stack) astList of
   Left err -> Left err
