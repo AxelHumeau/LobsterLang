@@ -72,7 +72,11 @@ evalAst stack (Call name params) = case evalSubParams stack params of
   Left err -> (Left err, stack)
   Right asts -> case maybe (Left ("No evaluation in one or more parameters of '" ++ name ++ "'"), stack) (callFunc stack name) asts of
     (Left err2, _) -> (Left err2, stack)
-    (Right fAst, newStack) -> maybe (Left ("No evaluation in function '" ++ name ++ "'"), newStack) (evalAst newStack) fAst
+    (Right fAst, newStack) -> Data.Bifunctor.second clearScope (
+      maybe
+      (Left ("No evaluation in function '" ++ name ++ "'"), newStack)
+      (evalAst newStack)
+      fAst)
 evalAst stack (FunctionValue _ _ Nothing) = (Right Nothing, stack) -- TODO: will change when function are treated as variables
 evalAst stack (FunctionValue params ast (Just asts)) = case evalSubParams stack asts of
   Left err -> (Left err, stack)
@@ -112,6 +116,7 @@ evalBiValOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, ast
       (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
       (evalAst stack . Call op)
       asts
+evalBiValOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiValOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
@@ -134,6 +139,7 @@ evalBiBoolOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, as
       (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
       (evalAst stack . Call op)
       asts
+evalBiBoolOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiBoolOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiBoolOp _ stack _ = (Left "Ast isn't a Call", stack)
 
@@ -156,6 +162,7 @@ evalBiCompValOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1,
       (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
       (evalAst stack . Call op)
       asts
+evalBiCompValOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiCompValOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
