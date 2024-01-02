@@ -107,11 +107,11 @@ spec = do
         it "Check parseSExpr Success n°2" $ do
             runParser parseSExpr "(   define   foo    3     )" `shouldBe` Just (SExpr.List [SExpr.Symbol "define",SExpr.Symbol "foo",SExpr.Value 3], "")
         it "Check ParseLisp Success n°1" $ do
-            parseLisp "(* 3 (+ 2 2))" [] `shouldBe` (Just (AST.Value 12), [])
+            parseLisp "(* 3 (+ 2 2))" [] `shouldBe` (Right (Just (AST.Value 12)), [])
         it "Check ParseLisp Success n°2" $ do
-            parseLisp "(* 3 (+ 2 (/ 12 6)))" [] `shouldBe` (Just (AST.Value 12), [])
+            parseLisp "(* 3 (+ 2 (/ 12 6)))" [] `shouldBe` (Right (Just (AST.Value 12)), [])
         it "Check ParseLisp Failure n°1" $ do
-            parseLisp "(* 3 (+ 2 (/ 12 6))" [] `shouldBe` (Nothing, [])
+            parseLisp "(* 3 (+ 2 (/ 12 6))" [] `shouldBe` (Left "Input is unparsable", [])
 
 
         -- "(define vie 42)"
