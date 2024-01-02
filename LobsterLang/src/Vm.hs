@@ -130,10 +130,9 @@ makeOperation Multiply stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : Multiply need two arguments"
 makeOperation Divide stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
-        (Just y, stack2)
-            | y == BoolVal False -> Left "Error: division by zero"
-            | y /= 0 -> Right (Stack.push stack2 (x / y))
-            | otherwise -> Left "Error: division by zero"
+        (Just (BoolVal False), _) -> Left "Error: division by zero"
+        (Just (IntVal 0), _) -> Left "Error: division by zero"
+        (Just y, stack2) -> Right (Stack.push stack2 (x / y))
         (Nothing, _) -> Left "Error : Divide need two arguments"
     (Nothing, _) -> Left "Error : Divide need two arguments"
 makeOperation Eq stack = case Stack.pop stack of
