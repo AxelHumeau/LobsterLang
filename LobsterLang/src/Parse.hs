@@ -239,9 +239,9 @@ parseSExpr = List <$> parseList (parseSpace *> parseValue <|> parseSymbol <|> pa
 
 -- | Return a Result that contain the evaluation of our Lisp String
 -- Takes as parameter the string that need to be evaluated and the Stack (Environment)
-parseLisp :: String -> [Scope.ScopeMb] -> (Maybe AST.Ast, [Scope.ScopeMb])
+parseLisp :: String -> [Scope.ScopeMb] -> (Either String (Maybe AST.Ast), [Scope.ScopeMb])
 parseLisp s stack = case runParser parseSExpr s of
-    Nothing -> (Nothing, [])
+    Nothing -> (Left "Input is unparsable", [])
     Just (res, _) -> case AstEval.sexprToAst res of
-        Nothing -> (Nothing, [])
+        Nothing -> (Left "Cannot convert input in AST", [])
         Just value -> AstEval.evalAst stack value
