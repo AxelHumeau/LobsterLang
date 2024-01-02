@@ -13,9 +13,12 @@ module Vm (Operator(..),
 
 import Stack
 import Data.Ratio
+import Data.Char
 
 data Value = IntVal Int
            | BoolVal Bool
+           | CharVal Char
+           | StringVal String
            | Op Operator
            | Function Func
            deriving (Show, Eq, Ord)
@@ -25,22 +28,39 @@ instance Num Value where
   (IntVal x) + (BoolVal y) = IntVal (x + fromEnum y)
   (IntVal x) + (IntVal y) = IntVal (x + y)
   (BoolVal x) + (BoolVal y) = IntVal (fromEnum x + fromEnum y)
+  (CharVal x) + (CharVal y) = IntVal (ord x + ord y)
+  (CharVal x) + (IntVal y) = IntVal (ord x + y)
+  (IntVal x) + (CharVal y) = IntVal (x + ord y)
+  (BoolVal x) + (CharVal y) = IntVal (fromEnum x + ord y)
+  (CharVal x) + (BoolVal y) = IntVal (ord x + fromEnum y)
   _ + _  = IntVal (0)
   (IntVal x) - (IntVal y) = IntVal (x - y)
   (BoolVal x) - (IntVal y) = IntVal (fromEnum x - y)
   (IntVal x) - (BoolVal y) = IntVal (x - fromEnum y)
   (BoolVal x) - (BoolVal y) = IntVal (fromEnum x - fromEnum y)
+  (CharVal x) - (CharVal y) = IntVal (ord x - ord y)
+  (CharVal x) - (IntVal y) = IntVal (ord x - y)
+  (IntVal x) - (CharVal y) = IntVal (x - ord y)
+  (BoolVal x) - (CharVal y) = IntVal (fromEnum x - ord y)
+  (CharVal x) - (BoolVal y) = IntVal (ord x - fromEnum y)
   _ - _  = IntVal (0)
   (IntVal x) * (IntVal y) = IntVal (x * y)
   (BoolVal x) * (IntVal y) = IntVal (fromEnum x * y)
   (IntVal x) * (BoolVal y) = IntVal (x * fromEnum y)
   (BoolVal x) * (BoolVal y) = IntVal (fromEnum x * fromEnum y)
+  (CharVal x) * (CharVal y) = IntVal (ord x * ord y)
+  (CharVal x) * (IntVal y) = IntVal (ord x * y)
+  (IntVal x) * (CharVal y) = IntVal (x * ord y)
+  (BoolVal x) * (CharVal y) = IntVal (fromEnum x * ord y)
+  (CharVal x) * (BoolVal y) = IntVal (ord x * fromEnum y)
   _ * _  = IntVal (0)
   abs (IntVal x) = IntVal (abs x)
   abs (BoolVal x) = IntVal (abs (fromEnum x))
+  abs (CharVal x) = IntVal (abs (ord x))
   abs _ = IntVal (0)
   signum (IntVal x) = IntVal (signum x)
   signum (BoolVal x) = IntVal (signum (fromEnum x))
+  signum (CharVal x) = IntVal (signum (ord x))
   signum _ = IntVal (0)
   fromInteger x = IntVal (fromInteger x)
 
@@ -49,9 +69,13 @@ instance Fractional Value where
   (BoolVal x) / (IntVal y) = IntVal (fromEnum x `div` y)
   (IntVal x) / (BoolVal y) = IntVal (x `div` fromEnum y)
   (BoolVal x) / (BoolVal y) = IntVal (fromEnum x `div` fromEnum y)
+  (CharVal x) / (CharVal y) = IntVal (ord x `div` ord y)
+  (CharVal x) / (IntVal y) = IntVal (ord x `div` y)
+  (IntVal x) / (CharVal y) = IntVal (x `div` ord y)
+  (CharVal x) / (BoolVal y) = IntVal (ord x `div` fromEnum y)
+  (BoolVal x) / (CharVal y) = IntVal (fromEnum x `div` ord y)
   _ / _ = IntVal (0)
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
-
 
 data Operator = Add
               | Subtract
@@ -114,10 +138,14 @@ type Func = [Instruction]
 
 makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
+    (Nothing, _) -> Left "Error : Add need two arguments"
+    (Just (StringVal s), stack1) -> case Stack.pop stack1 of
+        (Just (StringVal xs), stack2) -> Right (Stack.push stack2 (StringVal (s ++ xs)))
+        (Just _, _) -> Left "Error : invalide operation on string"
+        (Nothing, _) -> Left "Error : Add need two arguments"
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> Right (Stack.push stack2 (x + y))
         (Nothing, _) -> Left "Error : Add need two arguments"
-    (Nothing, _) -> Left "Error : Add need two arguments"
 makeOperation Subtract stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> Right (Stack.push stack2 (x - y))
