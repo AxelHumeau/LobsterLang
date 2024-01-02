@@ -238,6 +238,7 @@ _compileInstruction (Def symbolName nbInstruction instructions)
     >> compileInstructions instructions
 
 compileInstructions :: [Instruction] -> Put
+compileInstructions [] = putStringUtf8 ""
 compileInstructions [instruction] = _compileInstruction instruction
 compileInstructions (instruction:instructions) =
   _compileInstruction instruction >> compileInstructions instructions
