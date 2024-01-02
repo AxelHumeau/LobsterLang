@@ -23,7 +23,7 @@ inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDO
     getLine >>= \line -> case parseTest line new of
         (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
         -- (Just res, stack') -> print res >> writeCompiledAstToFile "test" (compileAst res)
-        (Just res, stack') -> print res >> compile res "test2"
+        (Just res, stack') -> print res >> let instructions = (astToInstructions res) in showInstructions instructions
 
 -- | Main
 main :: IO ()
@@ -34,6 +34,3 @@ main = do
     -- putStrLn (compileAst (fst ast))
     print "Start of Interpretation Lisp" >> inputLoop []
 
--- main :: IO ()
--- main = do
---     BL.writeFile "out" (BLU.pack "test")

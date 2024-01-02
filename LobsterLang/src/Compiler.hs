@@ -5,7 +5,7 @@
 -- Compiler
 -}
 
-module Compiler (compile, astToInstructions, compileInstructions, showInstructions) where
+module Compiler (compile, astToInstructions, compileInstructions, showInstructions, Instruction(..)) where
 
 import AST (Ast (..))
 
@@ -39,7 +39,7 @@ data Instruction =
         -- Stack Instructions
           PushI Int
         | PushB Bool
-        | PushS String
+        | PushS String -- rename to not be confused with push string
         -- Jump Instructions
         | JumpIfFalse Int
         -- Function Instructions
@@ -65,7 +65,7 @@ data Instruction =
           | Not -- Used to invert if statements and Boolean values.
           -- Unary Operators
           | Neg -- Used only for negations that can not be determined at compile time (ex: Symbol negation)
-        deriving (Show)
+        deriving (Show, Eq)
 
 instance Enum Instruction where
   -- Stack Instructions [10 - 30]
@@ -142,6 +142,7 @@ _showInstruction Or depth = concat (replicate depth "\t") ++ "OR" ++ "\n"
 _showInstruction Not depth = concat (replicate depth "\t") ++ "NOT" ++ "\n"
 _showInstruction Neg depth = concat (replicate depth "\t") ++ "NEG" ++ "\n"
 _showInstruction Compiler.Call depth = concat (replicate depth "\t") ++ "CALL" ++ "\n"
+_showInstruction Ret depth = concat (replicate depth "\t") ++ "RET" ++ "\n"
 _showInstruction (Def symbolName nbInstruction instructions) depth
                   = concat (replicate depth "\t") ++ "DEF " ++ show symbolName ++ " <" ++ show nbInstruction ++ "> =\n" ++ _showInstructions instructions (depth + 1)
 
@@ -183,6 +184,7 @@ _compileInstruction Or = _putOpCodeFromInstruction Or
 _compileInstruction Not = _putOpCodeFromInstruction Not
 _compileInstruction Neg = _putOpCodeFromInstruction Neg
 _compileInstruction Compiler.Call = _putOpCodeFromInstruction Compiler.Call
+_compileInstruction Ret = _putOpCodeFromInstruction Ret
 _compileInstruction (Def symbolName nbInstruction instructions)
     = _putOpCodeFromInstruction (Def symbolName nbInstruction instructions) >> _putString symbolName >> _putInt32 nbInstruction >> compileInstructions instructions
 
