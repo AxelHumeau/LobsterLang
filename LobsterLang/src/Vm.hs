@@ -140,7 +140,8 @@ makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : Add need two arguments"
     (Just (StringVal s), stack1) -> case Stack.pop stack1 of
-        (Just (StringVal xs), stack2) -> Right (Stack.push stack2 (StringVal (s ++ xs)))
+        (Just (StringVal xs), stack2) -> Right (Stack.push stack2
+            (StringVal (s ++ xs)))
         (Just _, _) -> Left "Error : invalide operation on string"
         (Nothing, _) -> Left "Error : Add need two arguments"
     (Just x, stack1) -> case Stack.pop stack1 of
