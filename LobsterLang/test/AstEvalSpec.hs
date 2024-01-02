@@ -22,6 +22,26 @@ spec = do
             evalAst [] (AST.Boolean True) `shouldBe` (Right (Just (AST.Boolean True)), [])
         it "Check Boolean False" $ do
             evalAst [] (AST.Boolean False) `shouldBe` (Right (Just (AST.Boolean False)), [])
+        it "Check String" $ do
+            evalAst [] (AST.String "Blegh") `shouldBe` (Right (Just (AST.String "Blegh")), [])
+        it "Check String conversion String" $ do
+            evalAst [] (Call "@" [AST.String "Blegh"]) `shouldBe` (Right (Just (AST.String "Blegh")), [])
+        it "Check String conversion Value" $ do
+            evalAst [] (Call "@" [AST.Value 8]) `shouldBe` (Right (Just (AST.String "8")), [])
+        it "Check String conversion Boolean" $ do
+            evalAst [Variable "x" (AST.Value 5)] (Call "@" [AST.Symbol "x"]) `shouldBe` (Right (Just (AST.String "5")), [Variable "x" (AST.Value 5)])
+        it "Check String conversion Symbol" $ do
+            evalAst [] (Call "@" [AST.Boolean True]) `shouldBe` (Right (Just (AST.String "True")), [])
+        it "Check String conversion Lambda" $ do
+            evalAst [] (Call "@" [AST.FunctionValue ["x"] (AST.Symbol "x") Nothing]) `shouldBe` (Left "Cannot convert lambda to string", [])
+        it "Check invalid String conversion" $ do
+            evalAst [] (Call "@" []) `shouldBe` (Left "Not enough parameters for string conversion", [])
+        it "Check invalid String conversion 2" $ do
+            evalAst [] (Call "@" [AST.Value 8, AST.Value 8]) `shouldBe` (Left "Too much parameters for string conversion", [])
+        it "Check invalid String conversion 3" $ do
+            evalAst [] (Call "@" [Define "a" (AST.Value 5)]) `shouldBe` (Left "Cannot convert no evaluation to string", [])
+        it "Check invalid String conversion 4" $ do
+            evalAst [] (Call "@" [Call "+" [AST.Value 5, AST.Boolean True]]) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [])
         -- Value operators
         it "Check valid operation +" $ do
             evalAst [] (Call "+" [AST.Value 5, AST.Value 8]) `shouldBe` (Right (Just (AST.Value 13)), [])
