@@ -5,7 +5,7 @@
 -- Compiler
 -}
 
-module Compiler (compile, astToInstructions, compileInstructions, showInstructions, Instruction(..)) where
+module Compiler (compile, astToInstructions, compileInstructions, showInstructions, writeCompiledInstructionsToFile, Instruction(..)) where
 
 import AST (Ast (..))
 

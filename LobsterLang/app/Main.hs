@@ -22,15 +22,11 @@ inputLoop :: [Scope.ScopeMb] -> IO ()
 inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
     getLine >>= \line -> case parseTest line new of
         (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
-        -- (Just res, stack') -> print res >> writeCompiledAstToFile "test" (compileAst res)
-        (Just res, stack') -> print res >> let instructions = (astToInstructions res) in showInstructions instructions
+        (res, stack') -> print res >> inputLoop stack'
+        -- Compile (Just res, stack') -> print res >> let instructions = (astToInstructions res) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
 
 -- | Main
 main :: IO ()
 main = do
-    -- let c = "(define foo 21)\n(define x 5)\n(define value (* x foo))"
-    -- let ast = parseLisp c []
-    -- putStrLn ("VAL" ++ show 5)
-    -- putStrLn (compileAst (fst ast))
     print "Start of Interpretation Lisp" >> inputLoop []
 
