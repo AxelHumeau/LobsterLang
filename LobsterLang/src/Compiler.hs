@@ -5,7 +5,7 @@
 -- Compiler
 -}
 
-module Compiler (compile, astToInstructions, showInstructions) where
+module Compiler (compile, astToInstructions, compileInstructions, showInstructions) where
 
 import AST (Ast (..))
 
@@ -184,14 +184,14 @@ _compileInstruction Not = _putOpCodeFromInstruction Not
 _compileInstruction Neg = _putOpCodeFromInstruction Neg
 _compileInstruction Compiler.Call = _putOpCodeFromInstruction Compiler.Call
 _compileInstruction (Def symbolName nbInstruction instructions)
-    = _putOpCodeFromInstruction (Def symbolName nbInstruction instructions) >> _putString symbolName >> _putInt32 nbInstruction >> _compileInstructions instructions
+    = _putOpCodeFromInstruction (Def symbolName nbInstruction instructions) >> _putString symbolName >> _putInt32 nbInstruction >> compileInstructions instructions
 
-_compileInstructions :: [Instruction] -> Put
-_compileInstructions [instruction] = _compileInstruction instruction
-_compileInstructions (instruction:instructions) = _compileInstruction instruction >> _compileInstructions instructions
+compileInstructions :: [Instruction] -> Put
+compileInstructions [instruction] = _compileInstruction instruction
+compileInstructions (instruction:instructions) = _compileInstruction instruction >> compileInstructions instructions
 
 writeCompiledInstructionsToFile :: String -> Put -> IO()
 writeCompiledInstructionsToFile filepath compiledInstructions = BS.writeFile filepath (BS.concat $ BSL.toChunks $ runPut compiledInstructions)
 
 compile :: Ast -> String -> IO()
-compile ast filepath = writeCompiledInstructionsToFile filepath (_compileInstructions (astToInstructions ast))
+compile ast filepath = writeCompiledInstructionsToFile filepath (compileInstructions (astToInstructions ast))
