@@ -20,7 +20,7 @@ top (x:_) = Just x
 -- | Push a value onto the stack, return the new stack
 push :: [a] -> a -> [a]
 push [] el = [el]
-push l el = (el:l)
+push l el = el:l
 
 -- | Remove the top of the stack, return a tuple containing
 -- the old top and the new stack
