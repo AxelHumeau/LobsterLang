@@ -48,6 +48,7 @@ evalAst stack (AST.Symbol s) =
     (Left ("Variable '" ++ s ++ "' doesn't exist"), stack)
     (evalAst stack)
     (getVarInScope stack s)
+evalAst stack (AST.String str) = (Right (Just (AST.String str)), stack)
 evalAst stack (Boolean b) = (Right (Just (Boolean b)), stack)
 evalAst stack (Call "+" astList) = evalBiValOp (+) stack (Call "+" astList)
 evalAst stack (Call "-" astList) = evalBiValOp (-) stack (Call "-" astList)
@@ -69,24 +70,36 @@ evalAst stack (Call "!" [AST.Boolean b]) = (Right (Just (AST.Boolean (not b))), 
 -- TODO: add ! support for evaluation of sub parameters
 evalAst stack (Call "!" [_]) = (Left "Parameter of unary operator '!' isn't a boolean", stack)
 evalAst stack (Call "!" _) = (Left "Invalid number of parameter for unary operator '!'", stack)
+evalAst stack (Call "@" [ast]) = case astToString stack ast of
+  Left err  -> (Left err, stack)
+  Right ast' -> (Right (Just ast'), stack)
+evalAst stack (Call "@" (_:_)) = (Left "Too much parameters for string conversion", stack)
+evalAst stack (Call "@" []) = (Left "Not enough parameters for string conversion", stack)
 evalAst stack (Call name params) = case evalSubParams stack params of
   Left err -> (Left err, stack)
   Right asts -> case maybe (Left ("No evaluation in one or more parameters of '" ++ name ++ "'"), stack) (callFunc stack name) asts of
     (Left err', _) -> (Left err', stack)
-    (Right fAst, newStack) -> maybe
-      (Left ("Function '" ++ name ++ "' doesn't exist"), stack)
-      (Data.Bifunctor.second clearScope . evalAst newStack)
-      fAst
+    (Right fAst, newStack) ->
+      maybe
+        (Left ("Function '" ++ name ++ "' doesn't exist"), stack)
+        (Data.Bifunctor.second clearScope . evalAst newStack)
+        fAst
 evalAst stack (FunctionValue _ _ Nothing) = (Right Nothing, stack) -- TODO: will change when function are treated as variables
 evalAst stack (FunctionValue params ast (Just asts))
-  | length params /= length asts = (Left ("Lambda takes " ++
-    show (length params) ++ " parameters, got " ++
-    show (length asts)), stack)
+  | length params /= length asts =
+      ( Left
+          ( "Lambda takes "
+              ++ show (length params)
+              ++ " parameters, got "
+              ++ show (length asts)
+          ),
+        stack
+      )
   | otherwise = case evalSubParams stack asts of
-  Left err -> (Left err, stack)
-  Right mEAsts -> case mEAsts of
-    Nothing -> (Left "No evaluation in one or more parameters of lambda", stack)
-    Just eAsts -> Data.Bifunctor.second clearScope (evalAst (addVarsToScope (beginScope stack) params eAsts) ast)
+      Left err -> (Left err, stack)
+      Right mEAsts -> case mEAsts of
+        Nothing -> (Left "No evaluation in one or more parameters of lambda", stack)
+        Just eAsts -> Data.Bifunctor.second clearScope (evalAst (addVarsToScope (beginScope stack) params eAsts) ast)
 evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
   | b = evalAst stack a1
   | otherwise = evalAst stack a2
@@ -179,3 +192,13 @@ evalSubParams :: [ScopeMb] -> [Ast] -> Either String (Maybe [Ast])
 evalSubParams stack astList = case mapM (fst . evalAst stack) astList of
   Left err -> Left err
   Right asts -> Right (sequence asts)
+
+astToString :: [ScopeMb] -> Ast -> Either String Ast
+astToString _ (AST.String str) = Right (AST.String str)
+astToString _ (AST.Value val) = Right (AST.String (show val))
+astToString _ (AST.Boolean bool) = Right (AST.String (show bool))
+astToString _ (AST.FunctionValue _ _ Nothing) = Left "Cannot convert lambda to string"
+astToString stack ast = case evalAst stack ast of
+  (Left err, _) -> Left err
+  (Right ast', _) -> maybe (Left "Cannot convert no evaluation to string")
+    (astToString stack) ast'

@@ -11,6 +11,7 @@ module AST (Ast(..)) where
 data Ast = Define String Ast
         | Value Int
         | Symbol String
+        | String String
         | Boolean Bool
         | Call String [Ast]
         | FunctionValue [String] Ast (Maybe [Ast])
