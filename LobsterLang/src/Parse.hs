@@ -27,7 +27,6 @@ module Parse (
     parseElem,
     parseValue,
     parseLisp,
-    parseTest,
     -- parseTuple,
 ) where
 
@@ -246,10 +245,3 @@ parseLisp s stack = case runParser parseSExpr s of
     Just (res, _) -> case AstEval.sexprToAst res of
         Nothing -> (Left "Cannot convert input in AST", [])
         Just value -> AstEval.evalAst stack value
-
-parseTest :: String -> [Scope.ScopeMb] -> (Maybe AST.Ast, [Scope.ScopeMb])
-parseTest s stack = case runParser parseSExpr s of
-    Nothing -> (Nothing, [])
-    Just (res, _) -> case AstEval.sexprToAst res of
-        Nothing -> (Nothing, [])
-        Just value -> (Just value, stack)
