@@ -14,6 +14,7 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 
 import Compiler
 import Data.Maybe (fromMaybe)
+import Debug.Trace
 
 
 -- | Infinite loop until EOF from the user
@@ -21,7 +22,8 @@ inputLoop :: [Scope.ScopeMb] -> IO ()
 inputLoop new = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
     getLine >>= \line -> case parseTest line new of
         (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
-        (Just res, stack') -> writeCompiledAstToFile "test" (compileAst res)
+        -- (Just res, stack') -> print res >> writeCompiledAstToFile "test" (compileAst res)
+        (Just res, stack') -> print res >> compile res "test2"
 
 -- | Main
 main :: IO ()
