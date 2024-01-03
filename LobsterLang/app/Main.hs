@@ -10,7 +10,6 @@ module Main (main) where
 import Parse
 import Scope
 import System.IO (isEOF)
-import System.Exit (exitWith, ExitCode (ExitFailure))
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()

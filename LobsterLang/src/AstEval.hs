@@ -41,11 +41,13 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s)
 evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalAst stack (Define s (FunctionValue params ast Nothing)) =
   (Right Nothing, addFuncToScope stack s params ast)
-evalAst stack (Define s v) = (Right Nothing, addVarToScope stack s v)
+evalAst stack (Define s v) = case getVarInScope stack s of
+  Nothing -> (Right Nothing, addVarToScope stack s v)
+  Just _ -> (Right Nothing, updateVar stack s v)
 evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s) =
   maybe
-    (Left ("Variable '" ++ s ++ "' doesn't exist"), stack)
+    (Left ("Symbol '" ++ s ++ "' doesn't exist in the current or global"), stack)
     (evalAst stack)
     (getVarInScope stack s)
 evalAst stack (AST.List l) = (Right (Just (AST.List l)), stack)
@@ -198,6 +200,13 @@ evalBiCompValOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for b
 evalBiCompValOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
+-- | Evaluate the 'Ast' for a given binary list operator
+-- such as '++', '--'.
+-- Takes a function that takes one '[Ast]' and one 'Ast' and return one 'Ast',
+-- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return a tuple containing the new stack post evaluation, and the
+-- application of the function onto the values inside the given 'Ast'
+-- or a 'String' containing the error message in case of error
 evalBiListOp :: ([Ast] -> Ast -> [Ast]) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalBiListOp _ stack (Call op [AST.Boolean _, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiListOp _ stack (Call op [AST.Value _, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
