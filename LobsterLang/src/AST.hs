@@ -10,9 +10,10 @@ module AST (Ast(..)) where
 -- | Abstract syntax tree for representing instructions
 data Ast = Define String Ast
         | Value Int
-        | Symbol String
-        | String String
         | Boolean Bool
+        | String String
+        | List [Ast]
+        | Symbol String
         | Call String [Ast]
         | FunctionValue [String] Ast (Maybe [Ast])
         | Cond Ast Ast (Maybe Ast)
