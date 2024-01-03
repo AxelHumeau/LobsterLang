@@ -106,6 +106,7 @@ instance Eq Operator where
 
 data Instruction = Push Value
                 | PushArg Int
+                | PushEnv String
                 | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
@@ -114,6 +115,7 @@ data Instruction = Push Value
 instance Show Instruction where
     show (Push val) = "Push " ++ show val
     show (PushArg x) = "PushArg " ++ show x
+    show (PushEnv x) = "PushEnv " ++ show x
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
@@ -125,6 +127,7 @@ instance Ord Instruction where
 instance Eq Instruction where
     (Push _) == (Push _) = True
     (PushArg _) == (PushArg _) = True
+    (PushEnv _) == (PushEnv _) = True
     Call == Call = True
     (JumpIfFalse _) == (JumpIfFalse _) = True
     (JumpIfTrue _) == (JumpIfTrue _) = True
@@ -135,13 +138,14 @@ type Stack = [Value]
 type Inst = [Instruction]
 type Arg = [Value]
 type Func = [Instruction]
+type Env = [(String, Value)]
 
 makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : Add need two arguments"
     (Just (StringVal s), stack1) -> case Stack.pop stack1 of
-        (Just (StringVal xs), stack2) -> Right (Stack.push stack2
-            (StringVal (s ++ xs)))
+        (Just (StringVal xs), stack2) ->
+            Right (Stack.push stack2 (StringVal (s ++ xs)))
         (Just _, _) -> Left "Error : invalide operation on string"
         (Nothing, _) -> Left "Error : Add need two arguments"
     (Just x, stack1) -> case Stack.pop stack1 of
@@ -183,40 +187,56 @@ isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
 isBoolVal _ = False
 
-exec :: Arg -> Inst -> Stack -> Either String Value
-exec _ (Call : _) [] = Left "Error: stack is empty"
-exec arg (Call : xs) stack = case Stack.pop stack of
+isInEnv :: String -> Env -> Maybe Value
+isInEnv _ [] = Nothing
+isInEnv s (xs:as)
+    | fst xs == s = Just (snd xs)
+    | fst xs /= s = isInEnv s as
+isInEnv _ _ = Nothing
+
+exec :: Env -> Arg -> Inst -> Stack -> Either String Value
+exec _ _ (Call : _) [] = Left "Error: stack is empty"
+exec env arg (Call : xs) stack = case Stack.pop stack of
         (Nothing, _) -> Left "Error: stack is empty"
         (Just (Op x), stack1)  -> case makeOperation x stack1 of
                Left err -> Left err
-               Right newstack -> exec arg xs newstack
-        (Just (Function x), stack1) -> case exec stack1 x [] of
+               Right newstack -> exec env arg xs newstack
+        (Just (Function x), stack1) -> case exec env stack1 x [] of
                 Left err -> Left err
-                Right val -> exec arg xs (Stack.push stack1 val)
-        (Just _, _) -> Left "Error: not an Operation or a function"
-exec [] (PushArg _:_) _ = Left "Error: no Arg"
-exec arg (PushArg x:xs) stack
+                Right val -> exec env arg xs (Stack.push stack1 val)
+        (Just a, _) -> Left ("Error: not an Operation or a function" ++ show a)
+exec _ [] (PushArg _:_) _ = Left "Error: no Arg"
+exec env arg (PushArg x:xs) stack
     | x < 0 = Left "Error index out of range"
     | x >= length arg = Left "Error: index out of range"
-    | otherwise = exec arg xs (Stack.push stack (arg !! x))
-exec arg (Push val:xs) stack = exec arg xs (Stack.push stack val)
-exec arg (JumpIfFalse val:xs) stack
-  | null xs = Left "Error: no jump possible"
-  | null stack = Left "Error: stack is empty"
+    | otherwise = exec env arg xs (Stack.push stack (arg !! x))
+exec [] _ (PushEnv _:_) _ = Left "Error: no Env"
+exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
+    Nothing -> Left "Error: not in environment"
+    Just (BoolVal b) -> exec env arg  (Push (BoolVal b):xs) stack
+    Just (IntVal i) -> exec env arg  (Push (IntVal i):xs) stack
+    Just (CharVal c) -> exec env arg  (Push (CharVal c):xs) stack
+    Just (StringVal str) -> exec env arg  (Push (StringVal str):xs) stack
+    Just (Op op) -> exec env arg (Push (Op op):xs) stack
+    Just (Function func) -> exec env arg (Push (Function func):xs) stack
+exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
+exec env arg (JumpIfFalse val:xs) stack
+  | Prelude.null xs = Left "Error: no jump possible"
+  | Prelude.null stack = Left "Error: stack is empty"
   | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal True = exec arg xs stack
-  | otherwise = exec arg (drop val xs) stack
-exec arg (JumpIfTrue val:xs) stack
-  | null xs = Left "Error: no jump possible"
-  | null stack = Left "Error: stack is empty"
+  | (head stack) == BoolVal True = exec env arg xs stack
+  | otherwise = exec env arg (Prelude.drop val xs) stack
+exec env arg (JumpIfTrue val:xs) stack
+  | Prelude.null xs = Left "Error: no jump possible"
+  | Prelude.null stack = Left "Error: stack is empty"
   | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal False = exec arg xs stack
-  | otherwise = exec arg (drop val xs) stack
-exec _ (Ret : _) stack = case Stack.top stack of
+  | (head stack) == BoolVal False = exec env arg xs stack
+  | otherwise = exec env arg (Prelude.drop val xs) stack
+exec _ _ (Ret : _) stack = case Stack.top stack of
     Just x -> Right x
     Nothing -> Left "Error: stack is empty"
-exec _ [] _ = Left "list no instruction found"
+exec _ _ [] _ = Left "list no instruction found"
