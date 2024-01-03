@@ -303,3 +303,11 @@ interpretateLisp value stack = case AstEval.sexprToAst value of
 --     Just (res, _) -> case AstEval.sexprToAst res of
 --         Nothing -> (Left "Cannot convert input in AST", [])
 --         Just value -> AstEval.evalAst stack value
+
+parseFunc :: Parser AST.Define
+parseFunc = Parser f
+    where
+        f :: Position -> String -> Either String (AST.Define, String, Position)
+        f pos s = case runParser (parseAnyString "func") pos s of
+            Left err -> Left err
+            Right (_, s', pos') -> Right ((AST.Define (parseElem parseString) (parseFuncValue)), s', pos')
