@@ -27,6 +27,10 @@ module Parse (
     parseElem,
     parseValue,
     parseLisp,
+    parseAnyString,
+    parseSpace,
+    parseLine,
+    interpretateLisp,
     -- parseTuple,
 ) where
 
@@ -36,9 +40,15 @@ import Control.Applicative (Alternative (..))
 import qualified AstEval
 import qualified AST
 import qualified Scope
+import GHC.IO.SubSystem (IoSubSystem(IoPOSIX))
+
+type Col = Int
+type Row = Int
+type Position = (Int, Int)
 
 data Parser a = Parser {
-    runParser :: String -> Maybe (a, String)
+    runParser :: Position -> String -> Either String (a, String, Position)
+
 
 }
 
@@ -47,33 +57,33 @@ instance Functor Parser where
     fmap fct parser =
         Parser
         (
-            \s -> case runParser parser s of
-                Nothing -> Nothing
-                Just (a, b) -> Just (fct a, b)
+            \pos s -> case runParser parser pos s  of
+                Left err -> Left err
+                Right (a, b, c) -> Right (fct a, b, c)
         )
 
 -- | Instance Applicative of the data Parser
 instance Applicative Parser where
-    pure result = Parser (\_ -> Just (result, ""))
+    -- pure result = Parser (\_ -> Left (result, "",))
 
     (<*>) parserA parserB =
         Parser
         (
-            \s -> case runParser parserA s of
-                Nothing -> Nothing
-                Just (a, b) -> case runParser parserB b of
-                    Nothing -> Nothing
-                    Just (a', b') -> Just (a a', b')
+            \pos s -> case runParser parserA pos s of
+                Left err -> Left err
+                Right (a, b, c) -> case runParser parserB c b of
+                    Left err' -> Left err'
+                    Right (a', b', c') -> Right (a a', b', c')
         )
 
 -- | Instance Alternative of the data Parser
 instance Alternative Parser where
-    empty = Parser (const Nothing)
+    empty = Parser (\_ _ -> Left "Error on parsing")
     (<|>) parserA parserB =
         Parser
         (
-            \s -> case runParser parserA s of
-                Nothing -> runParser parserB s
+            \pos s -> case runParser parserA pos s of
+                Left _ -> runParser parserB pos s
                 result -> result
         )
 
@@ -84,9 +94,9 @@ instance Monad Parser where
     a >>= b =
         Parser
         (
-            \s -> case runParser a s of
-                Nothing -> Nothing
-                Just (res, s') -> runParser (b res) s'
+            \pos s -> case runParser a pos s of
+                Left err -> Left err
+                Right (res, s', pos') -> runParser (b res) pos' s'
         )
 
 -- | Parse a character c
@@ -95,9 +105,10 @@ instance Monad Parser where
 parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
-        f :: Char -> String -> Maybe (Char, String)
-        f char (x:xs) = if char == x then Just (char, xs) else Nothing
-        f _ _ = Nothing
+        f :: Char -> Position -> String -> Either String (Char, String, Position)
+        f '\n' (row, col) (x:xs) = if '\n' == x then Right ('\n', xs, (row + 1, 0)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f char (row, col) (x:xs) = if char == x then Right (char, xs, (row, col + 1)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f _ (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
 
 -- | Parse with the first or the second parser
 -- Takes two parsers
@@ -111,11 +122,12 @@ parseOr parserA parserB = parserA <|> parserB
 parseAnd :: Parser a -> Parser b -> Parser (a, b)
 parseAnd parserA parserB = Parser (f parserA parserB)
     where
-        f :: Parser a -> Parser b -> String -> Maybe ((a, b), String)
-        f pA pB s = case runParser pA s of
-            Nothing -> Nothing
-            Just resultA ->
-                runParser ((\b -> (fst resultA, b)) <$> pB) (snd resultA)
+        f :: Parser a -> Parser b -> Position -> String -> Either String ((a, b), String, Position)
+        f pA pB pos s = case runParser pA pos s of
+            Left err -> Left err
+            Right (res, s', pos') -> case runParser pB pos' s' of
+                Left err -> Left err
+                Right (res', s'', pos'') -> Right ((res, res'), s'', pos'')
 
 -- | Parse with function after the two parsers
 -- Takes two parsers and a function
@@ -123,10 +135,10 @@ parseAnd parserA parserB = Parser (f parserA parserB)
 parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
 parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
     where
-    f :: (a -> b -> c) -> Parser a -> Parser b ->String -> Maybe (c, String)
-    f f'' pA pB s = case runParser (parseAnd pA pB) s of
-        Nothing -> Nothing
-        Just ((a, b), s') -> Just (f'' a b, s')
+    f :: (a -> b -> c) -> Parser a -> Parser b -> Position -> String -> Either String (c, String, Position)
+    f f'' pA pB pos s = case runParser (parseAnd pA pB) pos s of
+        Left err -> Left err
+        Right ((a, b), s', pos') -> Right (f'' a b, s', pos')
 
 -- | Parse with a parser
 -- Takes a parser
@@ -134,12 +146,12 @@ parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
 parseMany :: Parser a -> Parser [a]
 parseMany parserA = Parser (f parserA)
     where
-        f :: Parser a -> String -> Maybe ([a], String)
-        f parser s = case runParser parser s of
-            Nothing -> Just ([] , s)
-            Just (a, b) -> case runParser (parseMany parser) b of
-                Nothing -> Just ([a], b)
-                Just (a', b') -> Just (a : a', b')
+        f :: Parser a -> Position -> String -> Either String ([a], String, Position)
+        f parser pos s = case runParser parser pos s of
+            Left _ -> Right ([], s, pos)
+            Right (res, s', pos') -> case runParser (parseMany parser) pos' s' of
+                Left _ -> Right ([res], s', pos')
+                Right (res', s'', pos'') -> Right (res : res', s'', pos'')
 
 -- | Parse with a parser
 -- Takes a parser
@@ -151,11 +163,10 @@ parseSome parser = (:) <$> parser <*> parseMany parser
 parseUInt :: Parser Int
 parseUInt = Parser f
     where
-        f :: String -> Maybe (Int, String)
-        f s = case runParser (parseSome (parseAnyChar ['0'..'9'])) s of
-            Nothing -> Nothing
-            Just ([], _) -> Nothing
-            Just (a, b) -> Just (read a :: Int, b)
+        f :: Position -> String -> Either String (Int, String, Position)
+        f pos s = case runParser (parseSome parseDigit) pos s of
+            Left err -> Left err
+            Right (res, s', pos') -> Right (read res :: Int, s', pos')
 
 -- | Return a data Parser that parse a '-' or '+'
 parseSign :: Parser Char
@@ -172,13 +183,16 @@ parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|>
 parseInt :: Parser Int
 parseInt = Parser f
     where
-        f :: String -> Maybe (Int, String)
-        f ('-':xs) = runParser ((\x -> -x) <$> parseUInt) xs
-        f s = runParser parseUInt s
+        f :: Position -> String -> Either String (Int, String, Position)
+        f pos ('-':xs) = runParser ((\x -> -x) <$> parseUInt) pos xs
+        f pos s = runParser parseUInt pos s
 
 -- | Return a data Parser that parse multiple space
 parseSpace :: Parser [Char]
 parseSpace = parseMany (parseChar ' ')
+
+parseLine :: Parser [Char]
+parseLine = parseMany (parseChar '\n')
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
@@ -202,46 +216,83 @@ parseValue = Value <$> parseElem parseInt
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
-        parseEnd = parseChar ')' <* parseSpace
-        parseListValue = parseSpace *> parseMany (parseElem parser)
+        parseEnd = parseChar ')' <* parseSpace <* parseLine
+        parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
         parseStart = parseSpace *> parseChar '('
 
--- | Parse any characterfrom a String
+-- | Parse any character from a String
 -- Return a Parser that parse every character from a String
 parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
     where
-        f :: String -> String -> Maybe (Char, String)
-        f [] _ = Nothing
-        f (x:xs) s' = case parsed of
-            Nothing -> runParser (parseAnyChar xs) s'
+        f :: String -> Position -> String -> Either String (Char, String, Position)
+        f [] (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f (x:xs) pos s' = case parsed of
+            Left _ -> runParser (parseAnyChar xs) pos s'
             _ -> parsed
             where
-                parsed = runParser (parseOr (parseChar x) (parseChar c)) s'
+                parsed = runParser (parseOr (parseChar x) (parseChar c)) pos s'
                 c = case xs of
                     [] -> '\0'
                     _ -> head xs
 
+-- | Parse a specific String
+parseAnyString :: String -> Parser String
+parseAnyString s = Parser (f s s)
+    where
+        f :: String -> String -> Position  -> String -> Either String (String, String, Position)
+        f (x:xs) str pos s' = case runParser (parseChar x) pos s' of
+            Left err -> Left err
+            Right (_, s'', pos') -> f xs str pos' s''
+        f [] str pos s' = Right (str, s', pos)
+
 -- | Return a Parser that parse a Bool (#f or #t)
 parseBool :: Parser Bool
-parseBool = parseElem (Parser f)
+parseBool = parseElem (parseTrue <|> parseFalse)
+
+-- | Return a PArser that parse a True (in lisp -> #t)
+parseTrue :: Parser Bool
+parseTrue = Parser f
     where
-        f :: String -> Maybe (Bool, String)
-        f ('#':'f':' ':xs) = Just (False, xs)
-        f ('#':'t':' ':xs) = Just (True, xs)
-        f _ = Nothing
+        f :: Position -> String -> Either String (Bool, String, Position)
+        f pos s = case runParser (parseAnyString "#t") pos s of
+            Left err -> Left err
+            Right (_, s', pos') -> Right (True, s', pos')
+
+-- | Return a PArser that parse a True (in lisp -> #f)
+parseFalse :: Parser Bool
+parseFalse = Parser f
+    where
+        f :: Position -> String -> Either String (Bool, String, Position)
+        f pos s = case runParser (parseAnyString "#f") pos s of
+            Left err -> Left err
+            Right (_, s', pos') -> Right (False, s', pos')
 
 -- | Return a Parser that parse a SExpr
 parseSExpr :: Parser SExpr
-parseSExpr = List <$> parseList (parseSpace *> parseValue <|> parseSymbol <|> parseSpace *> parseSExpr)
-            <|> parseSymbol
-            <|> parseValue
+parseSExpr =
+             parseSpace *> parseSymbol <|>
+             parseSpace *> parseValue  <|>
+             List <$> parseList (parseSpace *> parseValue <|> parseSpace *> parseSymbol <|> parseSpace *> parseSExpr) <* parseSpace
+
+parseLisp :: Parser [SExpr]
+parseLisp = parseSome parseSExpr
 
 -- | Return a Result that contain the evaluation of our Lisp String
 -- Takes as parameter the string that need to be evaluated and the Stack (Environment)
-parseLisp :: String -> [Scope.ScopeMb] -> (Maybe AST.Ast, [Scope.ScopeMb])
-parseLisp s stack = case runParser parseSExpr s of
-    Nothing -> (Nothing, [])
-    Just (res, _) -> case AstEval.sexprToAst res of
-        Nothing -> (Nothing, [])
-        Just value -> AstEval.evalAst stack value
+interpretateLisp :: SExpr -> [Scope.ScopeMb] -> Either String (Maybe AST.Ast, [Scope.ScopeMb])
+interpretateLisp value stack = case AstEval.sexprToAst value of
+    Nothing -> Left "Error on evaluation"
+    Just res -> case AstEval.evalAst stack res of
+        (Nothing, stack') -> (if stack' == stack then Left "Error on evaluation" else Right (Nothing, stack'))
+        res' -> Right res'
+        --         -- Right (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
+--        - Right (res, stack') -> print res >> inputLoop stack'
+        -- Right (_, stack') -> interpretateLisp xs stack' stack
+-- interpretateLisp s stack new = case runParser (parseSome parseSExpr) (0, 0) s of
+    -- Left err -> Left err
+    -- Right (res, s', _) -> case AstEval.sexprToAst res of
+        -- Nothing -> Left "Error on evaluation"
+        -- Just value -> case AstEval.evalAst stack value of
+            -- (Nothing, stack') -> (if stack == new then Left "Error on evaluation" else parseLisp s' stack' new)
+            -- (_, stack'') -> parseLisp s' stack'' new
