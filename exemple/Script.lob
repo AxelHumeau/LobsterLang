@@ -1,0 +1,7 @@
+a: integer = 0
+
+for i: integer = 0; i < 100; i += 1 {
+    a += i;
+}
+
+@ a
