@@ -11,9 +11,11 @@ PKG_NAME = LobsterLang
 
 RM = rm -f
 
-all: $(NAME)
+COV_PATH_FILE = cov_path
 
-$(NAME):
+BROWSER = firefox
+
+all:
 	cd $(PKG_NAME) && stack install $(PKG_NAME) --local-bin-path ..
 	mv $(PKG_NAME)-exe $(NAME)
 
@@ -28,5 +30,10 @@ re: fclean all
 
 tests_run:
 	cd $(PKG_NAME) && stack test --coverage
+
+cov:
+	cd $(PKG_NAME) && stack test --coverage 2> >(tail -n 1 > $(COV_PATH_FILE))
+	$(BROWSER) $$(cat $(PKG_NAME)/$(COV_PATH_FILE) | sed 's/.$$//')
+	rm $(PKG_NAME)/$(COV_PATH_FILE)
 
 .PHONY: all clean fclean re tests_run

@@ -284,8 +284,9 @@ interpretateLisp :: SExpr -> [Scope.ScopeMb] -> Either String (Maybe AST.Ast, [S
 interpretateLisp value stack = case AstEval.sexprToAst value of
     Nothing -> Left "Error on evaluation"
     Just res -> case AstEval.evalAst stack res of
-        (Nothing, stack') -> (if stack' == stack then Left "Error on evaluation" else Right (Nothing, stack'))
-        res' -> Right res'
+        (Left err, _) -> Left err
+        (Right res', stack') -> Right (res', stack')
+
         --         -- Right (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
 --        - Right (res, stack') -> print res >> inputLoop stack'
         -- Right (_, stack') -> interpretateLisp xs stack' stack
@@ -296,3 +297,9 @@ interpretateLisp value stack = case AstEval.sexprToAst value of
         -- Just value -> case AstEval.evalAst stack value of
             -- (Nothing, stack') -> (if stack == new then Left "Error on evaluation" else parseLisp s' stack' new)
             -- (_, stack'') -> parseLisp s' stack'' new
+-- parseLisp :: String -> [Scope.ScopeMb] -> (Either String (Maybe AST.Ast), [Scope.ScopeMb])
+-- parseLisp s stack = case runParser parseSExpr s of
+--     Nothing -> (Left "Input is unparsable", [])
+--     Just (res, _) -> case AstEval.sexprToAst res of
+--         Nothing -> (Left "Cannot convert input in AST", [])
+--         Just value -> AstEval.evalAst stack value

@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -32,6 +32,7 @@ library
       Scope
       SExpr
       Stack
+      Vm
   other-modules:
       Paths_LobsterLang
   autogen-modules:
@@ -61,6 +62,9 @@ test-suite LobsterLang-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AstEvalSpec
+      ParseSpec
+      VmSpec
       Paths_LobsterLang
   autogen-modules:
       Paths_LobsterLang

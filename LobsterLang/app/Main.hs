@@ -47,3 +47,12 @@ checkArgs _ = exitWith (ExitFailure 84)
 -- | Main
 main :: IO ()
 main = getArgs >>= \argv -> checkArgs argv
+-- inputLoop new = isEOF >>= \end -> if end then putStrLn "End of Interpretation GLaDOS" else
+--     getLine >>= \line -> case parseLisp line new of
+--         (Left err, _) -> putStrLn ("\ESC[31m\ESC[1mThe lobster is angry: " ++ err ++ "\ESC[0m") >> inputLoop new
+--         (Right Nothing, stack) -> inputLoop stack
+--         (Right (Just res), stack') -> print res >> inputLoop stack'
+
+-- -- | Main
+-- main :: IO ()
+-- main =  putStrLn "Start of Interpretation Lisp" >> inputLoop []
