@@ -33,6 +33,7 @@ library
       SExpr
       Stack
       Utils
+      Vm
   other-modules:
       Paths_LobsterLang
   autogen-modules:
@@ -64,6 +65,7 @@ test-suite LobsterLang-test
   other-modules:
       AstEvalSpec
       ParseSpec
+      VmSpec
       Paths_LobsterLang
   autogen-modules:
       Paths_LobsterLang
