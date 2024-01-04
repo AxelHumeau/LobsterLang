@@ -13,7 +13,7 @@ data Ast = Define String Ast
         | Boolean Bool
         | String String
         | List [Ast]
-        | Symbol String
+        | Symbol String (Maybe [Ast])
         | Call String [Ast]
         | FunctionValue [String] Ast (Maybe [Ast])
         | Cond Ast Ast (Maybe Ast)
