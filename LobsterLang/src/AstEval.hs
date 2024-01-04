@@ -71,9 +71,9 @@ evalAst stack (Call "!" [AST.Boolean b]) = (Right (Just (AST.Boolean (not b))), 
 evalAst stack (Call "!" [_]) = (Left "Parameter of unary operator '!' isn't a boolean", stack)
 evalAst stack (Call "!" _) = (Left "Invalid number of parameter for unary operator '!'", stack)
 evalAst stack (Call "@" [ast]) = case astToString stack ast of
-  Left err  -> (Left err, stack)
+  Left err -> (Left err, stack)
   Right ast' -> (Right (Just ast'), stack)
-evalAst stack (Call "@" (_:_)) = (Left "Too much parameters for string conversion", stack)
+evalAst stack (Call "@" (_ : _)) = (Left "Too much parameters for string conversion", stack)
 evalAst stack (Call "@" []) = (Left "Not enough parameters for string conversion", stack)
 evalAst stack (Call "++" astList) = evalBiListOp (\l el -> l ++ [el]) stack (Call "++" astList)
 evalAst stack (Call "--" astList) = evalBiListOp (\l el -> filter (/= el) l) stack (Call "++" astList)
@@ -230,27 +230,46 @@ evalBiListOp _ stack _ = (Left "Ast isn't a Call", stack)
 -- Return the 'Ast' contained at the nth index if the 'Ast' is a list
 -- or a 'String' containing the error message in case of error
 getElemInAstList :: [ScopeMb] -> Ast -> Either String Ast
-getElemInAstList _ (Call "!!" [AST.Boolean _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [_, AST.Boolean _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [AST.String _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [_, AST.String _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [_, AST.List _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [AST.Value _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [AST.FunctionValue _ _ Nothing, _]) = Left "One or more parameters of binary operator '!!' is invalid"
-getElemInAstList _ (Call "!!" [_, AST.FunctionValue _ _ Nothing]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.Boolean _, _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.Boolean _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.String _, _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.String _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.List _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.Value _, _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.FunctionValue _ _ Nothing, _]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.FunctionValue _ _ Nothing]) =
+  Left "One or more parameters of binary operator '!!' is invalid"
 getElemInAstList _ (Call "!!" [AST.List a, AST.Value b])
   | length a > b = Right (a !! b)
   | otherwise = Left "Index out of range"
-getElemInAstList stack (Call "!!" [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
-  Left err -> Left err
-  Right asts -> case maybe
-    (Left "No evaluation in one or more parameters of binary operator '!!'", stack)
-    (evalAst stack . Call "!!")
-    asts of
+getElemInAstList stack (Call "!!" [ast1, ast2]) =
+  case evalSubParams stack [ast1, ast2] of
+    Left err -> Left err
+    Right asts -> case maybe
+      ( Left "No evaluation in one or more parameters of binary operator '!!'",
+        stack
+      )
+      (evalAst stack . Call "!!")
+      asts of
       (Left err, _) -> Left err
-      (Right ast, _) -> maybe (Left "No evaluation in one or more parameters of binary operator '!!'") Right ast
-getElemInAstList _ (Call "!!" (_ : _ : _)) = Left "Too much parameter for binary operator '!!'"
-getElemInAstList _ (Call "!!" _) = Left "Not enough parameter for binary operator '!!'"
+      (Right ast, _) ->
+        maybe
+          ( Left
+              "No evaluation in one or more parameters of binary operator '!!'"
+          )
+          Right
+          ast
+getElemInAstList _ (Call "!!" (_ : _ : _)) =
+  Left "Too much parameter for binary operator '!!'"
+getElemInAstList _ (Call "!!" _) =
+  Left "Not enough parameter for binary operator '!!'"
 getElemInAstList _ _ = Left "Ast isn't a '!!' Call"
 
 -- | Evaluate the 'Ast' for a given unary list operator
@@ -297,5 +316,8 @@ astToString _ (AST.Boolean bool) = Right (AST.String (show bool))
 astToString _ (AST.FunctionValue _ _ Nothing) = Left "Cannot convert lambda to string"
 astToString stack ast = case evalAst stack ast of
   (Left err, _) -> Left err
-  (Right ast', _) -> maybe (Left "Cannot convert no evaluation to string")
-    (astToString stack) ast'
+  (Right ast', _) ->
+    maybe
+      (Left "Cannot convert no evaluation to string")
+      (astToString stack)
+      ast'
