@@ -77,6 +77,10 @@ evalAst stack (Call "@" (_:_)) = (Left "Too much parameters for string conversio
 evalAst stack (Call "@" []) = (Left "Not enough parameters for string conversion", stack)
 evalAst stack (Call "++" astList) = evalBiListOp (\l el -> l ++ [el]) stack (Call "++" astList)
 evalAst stack (Call "--" astList) = evalBiListOp (\l el -> filter (/= el) l) stack (Call "++" astList)
+evalAst stack (Call "!!" astList) = case getElemInAstList stack (Call "!!" astList) of
+  Left err -> (Left err, stack)
+  Right ast' -> (Right (Just ast'), stack)
+evalAst stack (Call "len" astList) = evalUnListOp (AST.Value . length) stack (Call "len" astList)
 evalAst stack (Call unknown _) = (Left ("Unknown operator: " ++ unknown), stack)
 evalAst stack (FunctionValue params ast Nothing) =
   (Right (Just (FunctionValue params ast Nothing)), stack)
@@ -198,7 +202,7 @@ evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 
 -- | Evaluate the 'Ast' for a given binary list operator
 -- such as '++', '--'.
--- Takes a function that takes one '[Ast]' and one 'Ast' and return one 'Ast',
+-- Takes a function that takes one '[Ast]' and one 'Ast' and return one '[Ast]',
 -- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
 -- Return a tuple containing the new stack post evaluation, and the
 -- application of the function onto the values inside the given 'Ast'
@@ -206,6 +210,8 @@ evalBiCompValOp _ stack _ = (Left "Ast isn't a Call", stack)
 evalBiListOp :: ([Ast] -> Ast -> [Ast]) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
 evalBiListOp _ stack (Call op [AST.Boolean _, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiListOp _ stack (Call op [AST.Value _, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiListOp _ stack (Call op [AST.String _, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
+evalBiListOp _ stack (Call op [AST.FunctionValue _ _ Nothing, _]) = (Left ("First parameter of binary operator '" ++ op ++ "' is invalid"), stack)
 evalBiListOp f stack (Call _ [AST.List a, ast]) =
   (Right (Just (AST.List (f a ast))), stack)
 evalBiListOp _ stack (Call op [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
@@ -219,6 +225,59 @@ evalBiListOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for bina
 evalBiListOp _ stack (Call op _) = (Left ("Not enough parameter for binary operator '" ++ op ++ "'"), stack)
 evalBiListOp _ stack _ = (Left "Ast isn't a Call", stack)
 
+-- | Evaluate the 'Ast' for '!!'.
+-- Takes the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return the 'Ast' contained at the nth index if the 'Ast' is a list
+-- or a 'String' containing the error message in case of error
+getElemInAstList :: [ScopeMb] -> Ast -> Either String Ast
+getElemInAstList _ (Call "!!" [AST.Boolean _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.Boolean _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.String _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.String _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.List _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.Value _, _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.FunctionValue _ _ Nothing, _]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [_, AST.FunctionValue _ _ Nothing]) = Left "One or more parameters of binary operator '!!' is invalid"
+getElemInAstList _ (Call "!!" [AST.List a, AST.Value b])
+  | length a > b = Right (a !! b)
+  | otherwise = Left "Index out of range"
+getElemInAstList stack (Call "!!" [ast1, ast2]) = case evalSubParams stack [ast1, ast2] of
+  Left err -> Left err
+  Right asts -> case maybe
+    (Left "No evaluation in one or more parameters of binary operator '!!'", stack)
+    (evalAst stack . Call "!!")
+    asts of
+      (Left err, _) -> Left err
+      (Right ast, _) -> maybe (Left "No evaluation in one or more parameters of binary operator '!!'") Right ast
+getElemInAstList _ (Call "!!" (_ : _ : _)) = Left "Too much parameter for binary operator '!!'"
+getElemInAstList _ (Call "!!" _) = Left "Not enough parameter for binary operator '!!'"
+getElemInAstList _ _ = Left "Ast isn't a '!!' Call"
+
+-- | Evaluate the 'Ast' for a given unary list operator
+-- such as 'len'.
+-- Takes a function that takes one '[Ast]' and return one 'Ast',
+-- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
+-- Return a tuple containing the new stack post evaluation, and the
+-- application of the function onto the values inside the given 'Ast'
+-- or a 'String' containing the error message in case of error
+evalUnListOp :: ([Ast] -> Ast) -> [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
+evalUnListOp _ stack (Call op [AST.Boolean _]) = (Left ("The parameter of unary operator '" ++ op ++ "' is invalid"), stack)
+evalUnListOp _ stack (Call op [AST.String _]) = (Left ("The parameter of unary operator '" ++ op ++ "' is invalid"), stack)
+evalUnListOp _ stack (Call op [AST.Value _]) = (Left ("The parameter of unary operator '" ++ op ++ "' is invalid"), stack)
+evalUnListOp _ stack (Call op [AST.FunctionValue _ _ Nothing]) = (Left ("The parameter of unary operator '" ++ op ++ "' is invalid"), stack)
+evalUnListOp f stack (Call _ [AST.List a]) =
+  (Right (Just (f a)), stack)
+evalUnListOp _ stack (Call op [ast]) = case evalSubParams stack [ast] of
+  Left err -> (Left err, stack)
+  Right asts ->
+    maybe
+      (Left ("No evaluation in one or more parameters of binary operator '" ++ op ++ "'"), stack)
+      (evalAst stack . Call op)
+      asts
+evalUnListOp _ stack (Call op (_ : _ : _)) = (Left ("Too much parameter for unary operator '" ++ op ++ "'"), stack)
+evalUnListOp _ stack (Call op _) = (Left ("Not enough parameter for unary operator '" ++ op ++ "'"), stack)
+evalUnListOp _ stack _ = (Left "Ast isn't a Call", stack)
+
 -- | Evaluate the list of 'Ast'
 -- Takes the stack as a '[ScopeMb]' and a '[Ast]' to evaluate
 -- Returns a list of the results of the evaluation
@@ -229,6 +288,8 @@ evalSubParams stack astList = case mapM (fst . evalAst stack) astList of
   Left err -> Left err
   Right asts -> Right (sequence asts)
 
+-- | Transform the given 'Ast' into a 'String',
+-- return an error message when unable to convert
 astToString :: [ScopeMb] -> Ast -> Either String Ast
 astToString _ (AST.String str) = Right (AST.String str)
 astToString _ (AST.Value val) = Right (AST.String (show val))
