@@ -81,6 +81,13 @@ evalAst stack (Call "!!" astList) = case getElemInAstList stack (Call "!!" astLi
   Left err -> (Left err, stack)
   Right ast' -> (Right (Just ast'), stack)
 evalAst stack (Call "len" astList) = evalUnListOp (AST.Value . length) stack (Call "len" astList)
+evalAst stack (Call "$" [ast1, ast2]) = case evalAst stack ast1 of
+  (Left err, _) -> (Left (err ++ "in left side of operator $"), stack)
+  (Right _, stack') -> case evalAst stack' ast2 of
+    (Left err', _) -> (Left (err' ++ "in right side of operator $"), stack)
+    (Right ast, stack'') -> (Right ast, stack'')
+evalAst stack (Call "$" (_ : _)) = (Left "Too much parameters for operator $ (needs 2)", stack)
+evalAst stack (Call "$" []) = (Left "Not enough parameters for operator $ (needs 2)", stack)
 evalAst stack (Call unknown _) = (Left ("Unknown operator: " ++ unknown), stack)
 evalAst stack (FunctionValue params ast Nothing) =
   (Right (Just (FunctionValue params ast Nothing)), stack)
