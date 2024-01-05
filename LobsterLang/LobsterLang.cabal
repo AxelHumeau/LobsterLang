@@ -27,12 +27,10 @@ library
   exposed-modules:
       AST
       AstEval
-      Lib
       Parse
       Scope
       SExpr
       Stack
-      Utils
       Vm
   other-modules:
       Paths_LobsterLang

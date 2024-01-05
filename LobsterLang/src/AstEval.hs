@@ -15,7 +15,7 @@ module AstEval
 where
 
 import AST
-import qualified Data.Bifunctor
+import Data.Bifunctor
 import SExpr
 import Scope
 
@@ -39,9 +39,13 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s Nothing)
 -- or a 'String' containing the error message in case of error
 -- and the stack after evaluation.
 evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
-evalAst stack (Define s v) = case getVarInScope stack s of
-  Nothing -> (Right Nothing, addVarToScope stack s v)
-  Just _ -> (Right Nothing, updateVar stack s v)
+evalAst stack (Define s v) = case defineVar defineFunc stack s v of
+  Left err -> (Left err, stack)
+  Right stack' -> (Right Nothing, stack')
+  where
+    defineFunc = case getVarInScope stack s of
+      Nothing -> addVarToScope
+      Just _ -> updateVar
 evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s asts) = case getVarInScope stack s of
   Nothing -> (Left ("Symbol '" ++ s ++ "' doesn't exist in the current or global scope"), stack)
@@ -91,8 +95,11 @@ evalAst stack (Call "$" []) = (Left "Not enough parameters for operator $ (needs
 evalAst stack (Call unknown _) = (Left ("Unknown operator: " ++ unknown), stack)
 evalAst stack (FunctionValue params ast Nothing) =
   (Right (Just (FunctionValue params ast Nothing)), stack)
+evalAst stack (FunctionValue [] ast (Just [])) = Data.Bifunctor.second clearScope (evalAst stack ast)
+evalAst stack (FunctionValue params ast (Just [])) =
+  (Right (Just (FunctionValue params ast Nothing)), stack)
 evalAst stack (FunctionValue params ast (Just asts))
-  | length params /= length asts =
+  | length params < length asts =
       ( Left
           ( "Expression takes "
               ++ show (length params)
@@ -101,11 +108,8 @@ evalAst stack (FunctionValue params ast (Just asts))
           ),
         stack
       )
-  | otherwise = case evalSubParams stack asts of
-      Left err -> (Left err, stack)
-      Right mEAsts -> case mEAsts of
-        Nothing -> (Left "No evaluation in one or more parameters of expression", stack)
-        Just eAsts -> Data.Bifunctor.second clearScope (evalAst (addVarsToScope (beginScope stack) params eAsts) ast)
+  | otherwise =
+      evalAst stack (FunctionValue (tail params) (Call "$" [Define (head params) (head asts), ast]) (Just (tail asts)))
 evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
   | b = evalAst stack a1
   | otherwise = evalAst stack a2
@@ -328,3 +332,9 @@ astToString stack ast = case evalAst stack ast of
       (Left "Cannot convert no evaluation to string")
       (astToString stack)
       ast'
+
+defineVar :: ([ScopeMb] -> String -> Ast -> [ScopeMb]) -> [ScopeMb] -> String -> Ast -> Either String [ScopeMb]
+defineVar f stack name ast = case evalAst stack ast of
+  (Left err, _) -> Left err
+  (Right (Just ast'), _) -> Right (f stack name ast')
+  (Right Nothing, _) -> Left "Cannot define nothing"
