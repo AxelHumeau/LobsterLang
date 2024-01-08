@@ -5,7 +5,9 @@
 -- AstOptimizer
 -}
 
-module AstOptimizer where
+module AstOptimizer(
+    optimizeAst
+) where
 
 import AST
 import Scope (ScopeMb)
@@ -28,13 +30,25 @@ optimizeAst stack ((Define n ast):xs) = case optimizeAst stack [ast] of
     [Right (Result opAst)] -> Right (Result (Define n opAst)) : optimizeAst stack xs
     [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs
     _ -> Right (Warning "This situation shouldn't happen" (Define n ast)) : optimizeAst stack xs
+optimizeAst stack ((Symbol s Nothing):xs) = Right (Result (Symbol s Nothing)) : optimizeAst stack xs
+optimizeAst stack ((Symbol s (Just asts)):xs)
+    | foldr ((&&) . isUnoptimizable) True asts = case evalAst stack (Symbol s (Just asts)) of
+        (Left err, _) -> Left (Error err (Symbol s (Just asts))) : optimizeAst stack xs
+        (Right (Just _), stack') -> Right (Result (Symbol s (Just asts))) : optimizeAst stack' xs
+        _ -> Right (Warning "This situation shouldn't happen" (Symbol s (Just asts))) : optimizeAst stack xs
+    | otherwise = case sequence (optimizeAst stack asts) of
+        Left err -> Left err : optimizeAst stack xs
+        Right opAst -> Right (Result (Symbol s (Just (map fromOptimised opAst)))) : optimizeAst stack xs
 optimizeAst stack ((Call op asts):xs)
     | foldr ((&&) . isUnoptimizable) True asts &&
     foldr ((&&) . isValue) True asts = case evalAst stack (Call op asts) of
         (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs
         (Right (Just ast), stack') -> Right (Result ast) : optimizeAst stack' xs
         _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs
-    | foldr ((&&) . isUnoptimizable) True asts = Right (Result (Call op asts)) : optimizeAst stack xs
+    | foldr ((&&) . isUnoptimizable) True asts = case evalAst stack (Call op asts) of
+        (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs
+        (Right (Just _), stack') -> Right (Result (Call op asts)) : optimizeAst stack' xs
+        _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs
     | otherwise = case sequence (optimizeAst stack asts) of
         Left err -> Left err : optimizeAst stack xs
         Right asts' -> optimizeAst stack (Call op (map fromOptimised asts'):xs)
