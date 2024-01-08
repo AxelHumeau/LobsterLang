@@ -37,7 +37,10 @@ module Parse (
 
     parseToken,
     parseBinaryOperation,
-    parseUnaryOperation
+    parseUnaryOperation,
+    parseProduct,
+    parseSum,
+    parseExpr
     -- parseTuple,
 ) where
 
@@ -45,7 +48,7 @@ import Control.Applicative (Alternative (..))
 import qualified AstEval
 import qualified AST
 import qualified Scope
-import qualified Data.Bifoldable as AST
+import Control.Applicative
 
 type Position = (Int, Int)
 
@@ -223,9 +226,46 @@ parseString = parseWhiteSpace *> Parser f <* parseWhiteSpace
 parseSymbol :: Parser AST.Ast
 parseSymbol = AST.Symbol <$> parseElem parseString
 
+parseExpr :: Parser AST.Ast
+parseExpr = parseSum
+
+parseSum :: Parser AST.Ast
+parseSum = parseWhiteSpace *> Parser f <* parseWhiteSpace
+    where
+        f :: Position -> String -> Either String (AST.Ast, String, Position)
+        f pos s = case runParser parseProduct pos s of
+            Left err -> Left err
+            Right (res, s', pos') -> case runParser (parseAnyChar "+-") pos' s' of
+                Left _ -> Right (res, s', pos')
+                Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
+                    Left err'' -> Left err''
+                    Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+
+parseProduct :: Parser AST.Ast
+parseProduct = parseWhiteSpace *> Parser f <* parseWhiteSpace
+    where
+        f :: Position -> String -> Either String (AST.Ast, String, Position)
+        f pos s = case runParser parseValue pos s of
+            Left err -> Left err
+            Right (res, s', pos') -> case runParser (parseAnyChar "*/") pos' s' of
+                Left _ -> Right (res, s', pos')
+                Right (res', s'', pos'') -> case runParser parseProduct pos'' s'' of
+                    Left err'' -> Left err''
+                    Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+
+-- parseProduct = parseValue >>= \res -> case optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'') of
+-- --  -> return $ AST.Call [res'] [res, res''] of
+--     Nothing -> 
+--     Just res -> res
+-- parseProduct = do
+        -- (res, s, pos) <- parseValue
+        
+-- parseProduct = parseValue >>= \(res, s, pos) -> parseAnyChar "*/" pos res
+-- parseProduct = parseValue *> parseAnyChar "*/" <* parseProduct
+
 -- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser AST.Ast
-parseValue = AST.Value <$> parseElem parseInt
+parseValue = AST.Value <$> parseElem parseInt <|> parseChar '(' *> parseExpr <* parseChar ')'
 
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
@@ -358,6 +398,7 @@ parseBinaryOperator = parseWhiteSpace *> parseAnyString "+" <|>
                       parseWhiteSpace *> parseAnyString "$"
 
 parseBinaryOperation :: Parser AST.Ast
+-- parseBinaryOperation = parseAstValue >>= \(res, s', pos') -> parseBinaryOperator
 parseBinaryOperation = Parser f
     where
         f :: Position -> String -> Either String (AST.Ast, String, Position)
@@ -365,7 +406,7 @@ parseBinaryOperation = Parser f
             Left err -> Left err
             Right (res, s', pos') -> case runParser parseBinaryOperator pos' s' of
                 Left err' -> Left err'
-                Right (res', s'', pos'') -> case runParser parseAstValue pos'' s'' of
+                Right (res', s'', pos'') -> case runParser parseAst pos'' s'' of
                     Left err'' -> Left err''
                     Right (res'', s''', pos''') -> Right (AST.Call res' (res : [res'']), s''', pos''')
 
@@ -391,7 +432,7 @@ parseAstValue = parseWhiteSpace *> parseValue <|> parseWhiteSpace *> parseSymbol
 parseAst :: Parser AST.Ast
 parseAst =
         parseWhiteSpace *> parseDefineValue
-        -- <|> parseWhiteSpace *> parseBinaryOperation
+        <|> parseWhiteSpace *> parseBinaryOperation
         <|> parseWhiteSpace *> parseUnaryOperation
         <|> parseWhiteSpace *> parseBool
         <|> parseWhiteSpace *> parseSymbol
