@@ -82,7 +82,25 @@ optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs)
           )
           : optimizeAst stack xs
       _ -> Right (Result (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
-optimizeAst stack (ast : xs) = Right (Result ast) : optimizeAst stack xs
+optimizeAst stack ((FunctionValue params ast Nothing) : xs) = case optimizeAst stack [ast] of
+  [Left err] -> Left err : optimizeAst stack xs
+  [Right (Result ast')] -> Right (Result (FunctionValue params ast' Nothing)) : optimizeAst stack xs
+  [Right (Warning mes ast')] -> Right (Warning mes (FunctionValue params ast' Nothing)) : optimizeAst stack xs
+  _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast Nothing)) : optimizeAst stack xs
+optimizeAst stack ((FunctionValue params ast (Just asts)) : xs)
+  | not (isUnoptimizable ast) = case optimizeAst stack [ast] of
+      [Left err] -> Left err : optimizeAst stack xs
+      [Right (Result ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs)
+      [Right (Warning _ ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs)
+      _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs
+  | not (foldr ((&&) . isUnoptimizable) True asts) = case sequence (optimizeAst stack asts) of
+      Left err -> Left err : optimizeAst stack xs
+      Right asts' -> optimizeAst stack (FunctionValue params ast (Just (map fromOptimised asts')) : xs)
+  | length params > length asts = case evalAst stack (FunctionValue params ast (Just asts)) of
+      (Left err, _) -> Left (Error err (FunctionValue params ast (Just asts))) : optimizeAst stack xs
+      (Right (Just ast'), stack') -> Right (Result ast') : optimizeAst stack' xs
+      (Right Nothing, _) -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs
+  | otherwise = Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack xs
 optimizeAst _ [] = []
 
 isUnoptimizable :: Ast -> Bool
