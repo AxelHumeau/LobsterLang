@@ -31,7 +31,7 @@ module Parse (
     parseSpace,
     parseLine,
     interpretateLisp,
-    -- parseTuple,
+    parseDefineFn,
 ) where
 
 import SExpr
@@ -304,10 +304,24 @@ interpretateLisp value stack = case AstEval.sexprToAst value of
 --         Nothing -> (Left "Cannot convert input in AST", [])
 --         Just value -> AstEval.evalAst stack value
 
-parseFunc :: Parser AST.Define
-parseFunc = Parser f
+parseDefineFn :: Parser AST.Ast
+parseDefineFn = (Parser parseFn) *> (Parser defineFn)
     where
-        f :: Position -> String -> Either String (AST.Define, String, Position)
-        f pos s = case runParser (parseAnyString "func") pos s of
+        parseFn :: Position -> String -> Either String (String, String, Position)
+        parseFn pos s = case runParser (parseAnyString "fn") pos s of
             Left err -> Left err
-            Right (_, s', pos') -> Right ((AST.Define (parseElem parseString) (parseFuncValue)), s', pos')
+            Right (res, s', pos') -> Right (res, s', pos')
+        defineFn :: Position -> String -> Either String (AST.Ast, String, Position)
+        defineFn s pos = case runParser parseString s pos of
+            Left err -> Left err
+            Right (res, s', pos') -> Right (AST.Define res (AST.Value 1), s', pos')
+
+
+
+
+
+        -- defineFn pos s = AST.Define <$> (Parser res) (AST.Value <$> 1)
+        --     where
+        --         (res, s', pos') = parseString
+        -- -- parseFnValue :: AST.FunctionValue
+        -- -- parseFnValue = 
