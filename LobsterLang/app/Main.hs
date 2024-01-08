@@ -19,8 +19,8 @@ inputLoop new = isEOF >>= \end -> if end then putStrLn "End of Interpretation GL
     getLine >>= \line -> case parseLisp line new of
         (Left err, _) -> putStrLn ("\ESC[31m\ESC[1mThe lobster is angry: " ++ err ++ "\ESC[0m") >> inputLoop new
         (Right Nothing, stack) -> inputLoop stack
-        -- (Right (Just res), stack') -> print res >> inputLoop stack'
-        (Right (Just res), stack') -> print res >> let instructions = (astToInstructions res) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
+        (Right (Just res), stack') -> print res >> inputLoop stack'
+        -- (Right (Just res), stack') -> let instructions = (astToInstructions (AST.Cond (Boolean True) (Value 1) (Just (AST.Call "CallHere" [(Value 0)])))) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
 
 -- | Main
 main :: IO ()
