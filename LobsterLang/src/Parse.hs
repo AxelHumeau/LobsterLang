@@ -31,6 +31,9 @@ module Parse (
     parseSpace,
     parseLine,
     interpretateLisp,
+
+
+    parseToken,
     -- parseTuple,
 ) where
 
@@ -40,10 +43,7 @@ import Control.Applicative (Alternative (..))
 import qualified AstEval
 import qualified AST
 import qualified Scope
-import GHC.IO.SubSystem (IoSubSystem(IoPOSIX))
 
-type Col = Int
-type Row = Int
 type Position = (Int, Int)
 
 data Parser a = Parser {
@@ -51,6 +51,12 @@ data Parser a = Parser {
 
 
 }
+
+data Token =  Number Int
+            | Sym String
+            | Identifier String
+    deriving(Show, Eq)
+
 
 -- | Instance Functor of the data Parser
 instance Functor Parser where
@@ -64,7 +70,7 @@ instance Functor Parser where
 
 -- | Instance Applicative of the data Parser
 instance Applicative Parser where
-    -- pure result = Parser (\_ -> Left (result, "",))
+    pure result = Parser (\pos s -> Right (result, s, pos))
 
     (<*>) parserA parserB =
         Parser
@@ -174,10 +180,7 @@ parseSign = parseChar '-' <|> parseChar '+'
 
 -- | Return a data Parser that parse a digit
 parseDigit :: Parser Char
-parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|>
-             parseChar '3' <|> parseChar '4' <|> parseChar '5' <|>
-             parseChar '6' <|> parseChar '7' <|> parseChar '8' <|>
-             parseChar '9'
+parseDigit = parseAnyChar ['0'..'9']
 
 -- | Return a data Parser that parse a Int
 parseInt :: Parser Int
@@ -189,10 +192,13 @@ parseInt = Parser f
 
 -- | Return a data Parser that parse multiple space
 parseSpace :: Parser [Char]
-parseSpace = parseMany (parseChar ' ')
+parseSpace = parseMany (parseChar ' ' <|> parseChar '\n')
 
 parseLine :: Parser [Char]
 parseLine = parseMany (parseChar '\n')
+
+parseWhiteSpace :: Parser [Char]
+parseWhiteSpace = parseSpace <|> parseLine
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
@@ -216,7 +222,7 @@ parseValue = Value <$> parseElem parseInt
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
-        parseEnd = parseChar ')' <* parseSpace <* parseLine
+        parseEnd = parseChar ')' <* parseSpace
         parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
         parseStart = parseSpace *> parseChar '('
 
@@ -268,6 +274,48 @@ parseFalse = Parser f
             Left err -> Left err
             Right (_, s', pos') -> Right (False, s', pos')
 
+parseSymbolToken :: Parser Token
+parseSymbolToken = Sym <$> (
+                        parseAnyString "==" <|>
+                        parseAnyString "<=" <|>
+                        parseAnyString ">=" <|>
+                        parseAnyString "=" <|>
+                        parseAnyString "<" <|>
+                        parseAnyString ">" <|>
+                        parseAnyString "!=" <|>
+                        parseAnyString "->" <|>
+                        parseAnyString ":" <|>
+                        parseAnyString "+" <|>
+                        parseAnyString "-" <|>
+                        parseAnyString "*" <|>
+                        parseAnyString "/" <|>
+                        parseAnyString "%" <|>
+                        parseAnyString "{" <|>
+                        parseAnyString "}" <|>
+                        parseAnyString "(|" <|>
+                        parseAnyString "|)" <|>
+                        parseAnyString "if" <|>
+                        parseAnyString "else" <|>
+                        parseAnyString "fn"
+                        )
+
+    -- where
+    --     parseCall = 
+    --     parseFuncArg = parseName *> parseList parseString
+    --     parseName = parseString 
+
+parseIdentifierToken :: Parser Token
+parseIdentifierToken = Identifier <$> parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z']))
+
+parseNumberToken :: Parser Token
+parseNumberToken = Number <$> parseInt
+
+parseToken :: Parser [Token]
+parseToken = parseSome (parseWhiteSpace *> parseElem parseSymbolToken <|>
+                        parseWhiteSpace *> parseElem parseIdentifierToken <|>
+                        parseWhiteSpace *> parseElem parseNumberToken)
+            <|> parseWhiteSpace *> parseElem parseToken
+
 -- | Return a Parser that parse a SExpr
 parseSExpr :: Parser SExpr
 parseSExpr =
@@ -275,8 +323,11 @@ parseSExpr =
              parseSpace *> parseValue  <|>
              List <$> parseList (parseSpace *> parseValue <|> parseSpace *> parseSymbol <|> parseSpace *> parseSExpr) <* parseSpace
 
+-- tokenization :: Parser [Token]
+-- tokenization = 
+
 parseLisp :: Parser [SExpr]
-parseLisp = parseSome parseSExpr
+parseLisp = parseSome parseSExpr <* parseSpace
 
 -- | Return a Result that contain the evaluation of our Lisp String
 -- Takes as parameter the string that need to be evaluated and the Stack (Environment)
