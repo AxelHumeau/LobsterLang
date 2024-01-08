@@ -22,86 +22,95 @@ data AstOptimised
   | Warning String Ast
   deriving (Eq, Show)
 
-optimizeAst :: [ScopeMb] -> [Ast] -> [Either AstError AstOptimised]
-optimizeAst stack ((Value v) : xs) = Right (Result (Value v)) : optimizeAst stack xs
-optimizeAst stack ((Boolean b) : xs) = Right (Result (Boolean b)) : optimizeAst stack xs
-optimizeAst stack ((String str) : xs) = Right (Result (String str)) : optimizeAst stack xs
-optimizeAst stack ((List asts) : xs) = case sequence (optimizeAst stack asts) of
-  Left err -> Left err : optimizeAst stack xs
-  Right opAst -> Right (Result (List (map fromOptimised opAst))) : optimizeAst stack xs
-optimizeAst stack ((Define n ast) : xs) = case optimizeAst stack [ast] of
-  [Left err] -> Left err : optimizeAst stack xs
-  [Right (Result opAst)] -> Right (Result (Define n opAst)) : optimizeAst stack xs
-  [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs
-  _ -> Right (Warning "This situation shouldn't happen" (Define n ast)) : optimizeAst stack xs
-optimizeAst stack ((Symbol s Nothing) : xs) = Right (Result (Symbol s Nothing)) : optimizeAst stack xs
-optimizeAst stack ((Symbol s (Just asts)) : xs)
+optimizeAst :: [ScopeMb] -> [Ast] -> Bool -> [Either AstError AstOptimised]
+optimizeAst stack ((Value v) : xs) inFunc = Right (Result (Value v)) : optimizeAst stack xs inFunc
+optimizeAst stack ((Boolean b) : xs) inFunc = Right (Result (Boolean b)) : optimizeAst stack xs inFunc
+optimizeAst stack ((String str) : xs) inFunc = Right (Result (String str)) : optimizeAst stack xs inFunc
+optimizeAst stack ((List asts) : xs)  inFunc= case sequence (optimizeAst stack asts inFunc) of
+  Left err -> Left err : optimizeAst stack xs inFunc
+  Right opAst -> Right (Result (List (map fromOptimised opAst))) : optimizeAst stack xs inFunc
+optimizeAst stack ((Define n ast) : xs) inFunc = case optimizeAst stack [ast] inFunc of
+  [Left err] -> Left err : optimizeAst stack xs inFunc
+  [Right (Result opAst)] -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
+  [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs inFunc
+  _ -> Right (Warning "This situation shouldn't happen" (Define n ast)) : optimizeAst stack xs inFunc
+optimizeAst stack ((Symbol s Nothing) : xs) inFunc = Right (Result (Symbol s Nothing)) : optimizeAst stack xs inFunc
+optimizeAst stack ((Symbol s (Just asts)) : xs) inFunc
   | foldr ((&&) . isUnoptimizable) True asts = case evalAst stack (Symbol s (Just asts)) of
-      (Left err, _) -> Left (Error err (Symbol s (Just asts))) : optimizeAst stack xs
-      (Right (Just _), stack') -> Right (Result (Symbol s (Just asts))) : optimizeAst stack' xs
-      _ -> Right (Warning "This situation shouldn't happen" (Symbol s (Just asts))) : optimizeAst stack xs
-  | otherwise = case sequence (optimizeAst stack asts) of
-      Left err -> Left err : optimizeAst stack xs
-      Right opAst -> Right (Result (Symbol s (Just (map fromOptimised opAst)))) : optimizeAst stack xs
-optimizeAst stack ((Call op asts) : xs)
+      (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)
+        | inFunc -> Right (Result (Symbol s (Just asts))) : optimizeAst stack xs inFunc
+        | otherwise -> Left (Error ('S':'y':'m':'b':'o':'l':' ':'\'':xs') (Symbol s (Just asts))) : optimizeAst stack xs inFunc
+      (Left err, _) -> Left (Error err (Symbol s (Just asts))) : optimizeAst stack xs inFunc
+      (Right (Just _), stack') -> Right (Result (Symbol s (Just asts))) : optimizeAst stack' xs inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Symbol s (Just asts))) : optimizeAst stack xs inFunc
+  | otherwise = case sequence (optimizeAst stack asts inFunc) of
+      Left err -> Left err : optimizeAst stack xs inFunc
+      Right opAst -> Right (Result (Symbol s (Just (map fromOptimised opAst)))) : optimizeAst stack xs inFunc
+optimizeAst stack ((Call op asts) : xs) inFunc
   | foldr ((&&) . isUnoptimizable) True asts
       && foldr ((&&) . isValue) True asts = case evalAst stack (Call op asts) of
-      (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs
-      (Right (Just ast), stack') -> Right (Result ast) : optimizeAst stack' xs
-      _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs
+      (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)
+        | inFunc -> Right (Result (Call op asts)) : optimizeAst stack xs inFunc
+        | otherwise -> Left (Error ('S':'y':'m':'b':'o':'l':' ':'\'':xs') (Call op asts)) : optimizeAst stack xs inFunc
+      (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs inFunc
+      (Right (Just ast), stack') -> Right (Result ast) : optimizeAst stack' xs inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs inFunc
   | foldr ((&&) . isUnoptimizable) True asts = case evalAst stack (Call op asts) of
-      (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs
-      (Right (Just _), stack') -> Right (Result (Call op asts)) : optimizeAst stack' xs
-      _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs
-  | otherwise = case sequence (optimizeAst stack asts) of
-      Left err -> Left err : optimizeAst stack xs
-      Right asts' -> optimizeAst stack (Call op (map fromOptimised asts') : xs)
-optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs)
-  | not (isUnoptimizable condAst) = case optimizeAst stack [condAst] of
-      [Left err] -> Left err : optimizeAst stack xs
-      [Right (Result condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst : xs)
-      [Right (Warning _ condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst : xs)
-      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
-  | not (isUnoptimizable trueAst) = case optimizeAst stack [trueAst] of
-      [Left err] -> Left err : optimizeAst stack xs
-      [Right (Result trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst : xs)
-      [Right (Warning _ trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst : xs)
-      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
-  | isJust mFalseAst && not (isUnoptimizable (fromJust mFalseAst)) = case optimizeAst stack [fromJust mFalseAst] of
-      [Left err] -> Left err : optimizeAst stack xs
-      [Right (Result falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs)
-      [Right (Warning _ falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs)
-      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
+      (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)
+        | inFunc -> Right (Result (Call op asts))  : optimizeAst stack xs inFunc
+        | otherwise -> Left (Error ('S':'y':'m':'b':'o':'l':' ':'\'':xs') (Call op asts)) : optimizeAst stack xs inFunc
+      (Left err, _) -> Left (Error err (Call op asts)) : optimizeAst stack xs inFunc
+      (Right (Just _), stack') -> Right (Result (Call op asts)) : optimizeAst stack' xs inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Call op asts)) : optimizeAst stack xs inFunc
+  | otherwise = case sequence (optimizeAst stack asts inFunc) of
+      Left err -> Left err : optimizeAst stack xs inFunc
+      Right asts' -> optimizeAst stack (Call op (map fromOptimised asts') : xs) inFunc
+optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs) inFunc
+  | not (isUnoptimizable condAst) = case optimizeAst stack [condAst] inFunc of
+      [Left err] -> Left err : optimizeAst stack xs inFunc
+      [Right (Result condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inFunc
+      [Right (Warning _ condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs inFunc
+  | not (isUnoptimizable trueAst) = case optimizeAst stack [trueAst] inFunc of
+      [Left err] -> Left err : optimizeAst stack xs inFunc
+      [Right (Result trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inFunc
+      [Right (Warning _ trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs inFunc
+  | isJust mFalseAst && not (isUnoptimizable (fromJust mFalseAst)) = case optimizeAst stack [fromJust mFalseAst] inFunc of
+      [Left err] -> Left err : optimizeAst stack xs inFunc
+      [Right (Result falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inFunc
+      [Right (Warning _ falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs inFunc
   | otherwise = case condAst of
-      Boolean True -> Right (Warning "Condition is always true" trueAst) : optimizeAst stack xs
+      Boolean True -> Right (Warning "Condition is always true" trueAst) : optimizeAst stack xs inFunc
       Boolean False ->
         Right
           ( Warning
               "Condition is always false"
               (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst)
           )
-          : optimizeAst stack xs
-      _ -> Right (Result (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
-optimizeAst stack ((FunctionValue params ast Nothing) : xs) = case optimizeAst stack [ast] of
-  [Left err] -> Left err : optimizeAst stack xs
-  [Right (Result ast')] -> Right (Result (FunctionValue params ast' Nothing)) : optimizeAst stack xs
-  [Right (Warning mes ast')] -> Right (Warning mes (FunctionValue params ast' Nothing)) : optimizeAst stack xs
-  _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast Nothing)) : optimizeAst stack xs
-optimizeAst stack ((FunctionValue params ast (Just asts)) : xs)
-  | not (isUnoptimizable ast) = case optimizeAst stack [ast] of
-      [Left err] -> Left err : optimizeAst stack xs
-      [Right (Result ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs)
-      [Right (Warning _ ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs)
-      _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs
-  | not (foldr ((&&) . isUnoptimizable) True asts) = case sequence (optimizeAst stack asts) of
-      Left err -> Left err : optimizeAst stack xs
-      Right asts' -> optimizeAst stack (FunctionValue params ast (Just (map fromOptimised asts')) : xs)
+          : optimizeAst stack xs inFunc
+      _ -> Right (Result (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs inFunc
+optimizeAst stack ((FunctionValue params ast Nothing) : xs) inFunc = case optimizeAst stack [ast] True of
+  [Left err] -> Left err : optimizeAst stack xs inFunc
+  [Right (Result ast')] -> Right (Result (FunctionValue params ast' Nothing)) : optimizeAst stack xs inFunc
+  [Right (Warning mes ast')] -> Right (Warning mes (FunctionValue params ast' Nothing)) : optimizeAst stack xs inFunc
+  _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast Nothing)) : optimizeAst stack xs inFunc
+optimizeAst stack ((FunctionValue params ast (Just asts)) : xs) inFunc
+  | not (isUnoptimizable ast) = case optimizeAst stack [ast] True of
+      [Left err] -> Left err : optimizeAst stack xs inFunc
+      [Right (Result ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs) inFunc
+      [Right (Warning _ ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs) inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+  | not (foldr ((&&) . isUnoptimizable) True asts) = case sequence (optimizeAst stack asts inFunc) of
+      Left err -> Left err : optimizeAst stack xs inFunc
+      Right asts' -> optimizeAst stack (FunctionValue params ast (Just (map fromOptimised asts')) : xs) inFunc
   | length params > length asts = case evalAst stack (FunctionValue params ast (Just asts)) of
-      (Left err, _) -> Left (Error err (FunctionValue params ast (Just asts))) : optimizeAst stack xs
-      (Right (Just ast'), stack') -> Right (Result ast') : optimizeAst stack' xs
-      (Right Nothing, _) -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs
-  | otherwise = Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack xs
-optimizeAst _ [] = []
+      (Left err, _) -> Left (Error err (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+      (Right (Just ast'), stack') -> Right (Result ast') : optimizeAst stack' xs inFunc
+      (Right Nothing, _) -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+  | otherwise = Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+optimizeAst _ [] _ = []
 
 isUnoptimizable :: Ast -> Bool
 isUnoptimizable (Define _ ast) = isUnoptimizable ast
