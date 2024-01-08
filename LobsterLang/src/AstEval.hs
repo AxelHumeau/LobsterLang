@@ -51,7 +51,10 @@ evalAst stack (AST.Symbol s asts) = case getVarInScope stack s of
   Nothing -> (Left ("Symbol '" ++ s ++ "' doesn't exist in the current or global scope"), stack)
   Just (FunctionValue params ast Nothing) -> evalAst stack (FunctionValue params ast asts)
   Just value -> evalAst stack value
-evalAst stack (AST.List l) = (Right (Just (AST.List l)), stack)
+evalAst stack (AST.List l) = case evalSubParams stack l of
+  (Left err) -> (Left err, stack)
+  (Right (Just l')) -> (Right (Just (AST.List l')), stack)
+  (Right Nothing) -> (Left "Cannot have Nothing in a list", stack)
 evalAst stack (AST.String str) = (Right (Just (AST.String str)), stack)
 evalAst stack (Boolean b) = (Right (Just (Boolean b)), stack)
 evalAst stack (Call "+" astList) = evalBiValOp (+) stack (Call "+" astList)
