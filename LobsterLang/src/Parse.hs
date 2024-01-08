@@ -216,9 +216,9 @@ parseValue = Value <$> parseElem parseInt
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
-        parseEnd = parseChar ')' <* parseSpace <* parseLine
+        parseEnd = parseAnyString "|)" <* parseSpace <* parseLine
         parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
-        parseStart = parseSpace *> parseChar '('
+        parseStart = parseSpace *> parseAnyString "(|"
 
 -- | Parse any character from a String
 -- Return a Parser that parse every character from a String
@@ -314,11 +314,17 @@ parseDefineFn = (Parser parseFn) *> (Parser defineFn)
         defineFn :: Position -> String -> Either String (AST.Ast, String, Position)
         defineFn s pos = case runParser parseString s pos of
             Left err -> Left err
-            Right (res, s', pos') -> Right (AST.Define res (AST.Value 1), s', pos')
+            Right (res, s', pos') -> case runParser parseFunctionValue pos' s' of
+                Left err -> Left err
+                Right (res', s'', pos'') -> Right (AST.Define res res', s'', pos'')
 
-
-
-
+parseFunctionValue :: Parser AST.Ast
+parseFunctionValue = Parser parseParams
+    where
+        parseParams :: Position -> String -> Either String (AST.Ast, String, Position)
+        parseParams s pos = case runParser (parseList parseString) s pos of
+            Left err -> Left err
+            Right (res, s', pos') -> Right (AST.FunctionValue res (AST.Value 1) Nothing, s', pos')
 
         -- defineFn pos s = AST.Define <$> (Parser res) (AST.Value <$> 1)
         --     where
