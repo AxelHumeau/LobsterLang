@@ -6,17 +6,19 @@
 -}
 
 module AstOptimizer(
-    optimizeAst
+    optimizeAst,
 ) where
 
 import AST
 import Scope (ScopeMb)
 import AstEval
+import Data.Maybe
 
-data AstError = Error String Ast
+data AstError = Error String Ast deriving (Eq, Show)
 
 data AstOptimised = Result Ast
                   | Warning String Ast
+                   deriving (Eq, Show)
 
 optimizeAst :: [ScopeMb] -> [Ast] -> [Either AstError AstOptimised]
 optimizeAst stack ((Value v):xs) = Right (Result (Value v)) : optimizeAst stack xs
@@ -52,6 +54,27 @@ optimizeAst stack ((Call op asts):xs)
     | otherwise = case sequence (optimizeAst stack asts) of
         Left err -> Left err : optimizeAst stack xs
         Right asts' -> optimizeAst stack (Call op (map fromOptimised asts'):xs)
+optimizeAst stack ((Cond condAst trueAst mFalseAst):xs)
+    | not (isUnoptimizable condAst) = case optimizeAst stack [condAst] of
+        [Left err] -> Left err : optimizeAst stack xs
+        [Right (Result condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst:xs)
+        [Right (Warning _ condAst')] -> optimizeAst stack (Cond condAst' trueAst mFalseAst:xs)
+        _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
+    | not (isUnoptimizable trueAst) = case optimizeAst stack [trueAst] of
+        [Left err] -> Left err : optimizeAst stack xs
+        [Right (Result trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst:xs)
+        [Right (Warning _ trueAst')] -> optimizeAst stack (Cond condAst trueAst' mFalseAst:xs)
+        _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
+    | isJust mFalseAst && not (isUnoptimizable (fromJust mFalseAst)) = case optimizeAst stack [fromJust mFalseAst] of
+        [Left err] -> Left err : optimizeAst stack xs
+        [Right (Result falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst'):xs)
+        [Right (Warning _ falseAst')] -> optimizeAst stack (Cond condAst trueAst (Just falseAst'):xs)
+        _ -> Right (Warning "This situation shouldn't happen" (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
+    | otherwise = case condAst of
+        Boolean True -> Right (Warning "Condition is always true" trueAst) : optimizeAst stack xs
+        Boolean False -> Right (Warning "Condition is always false"
+            (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst)) : optimizeAst stack xs
+        _ -> Right (Result (Cond condAst trueAst mFalseAst)) : optimizeAst stack xs
 optimizeAst stack (ast:xs) = Right (Result ast) : optimizeAst stack xs
 optimizeAst _ [] = []
 
@@ -61,7 +84,8 @@ isUnoptimizable (Value _) = True
 isUnoptimizable (Boolean _) = True
 isUnoptimizable (String _) = True
 isUnoptimizable (List asts) = foldr ((&&) . isUnoptimizable) True asts
-isUnoptimizable (Call _ asts) = foldr ((&&) . isUnoptimizable) True asts
+isUnoptimizable (Call _ asts) = foldr ((&&) . isUnoptimizable) True asts &&
+    not (foldr ((&&) . isValue) True asts)
 isUnoptimizable (Symbol _ Nothing) = True
 isUnoptimizable (Symbol _ (Just asts)) = foldr ((&&) . isUnoptimizable) True asts
 isUnoptimizable (FunctionValue _ ast Nothing) = isUnoptimizable ast
