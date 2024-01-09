@@ -63,6 +63,7 @@ test-suite LobsterLang-test
   main-is: Spec.hs
   other-modules:
       AstEvalSpec
+      AstOptimizerSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:

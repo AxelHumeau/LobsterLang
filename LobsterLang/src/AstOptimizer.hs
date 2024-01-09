@@ -7,6 +7,8 @@
 
 module AstOptimizer
   ( optimizeAst,
+    AstError(..),
+    AstOptimised(..),
   )
 where
 
