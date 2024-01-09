@@ -22,6 +22,26 @@ spec = do
             evalAst [] (AST.Boolean True) `shouldBe` (Right (Just (AST.Boolean True)), [])
         it "Check Boolean False" $ do
             evalAst [] (AST.Boolean False) `shouldBe` (Right (Just (AST.Boolean False)), [])
+        it "Check String" $ do
+            evalAst [] (AST.String "Blegh") `shouldBe` (Right (Just (AST.String "Blegh")), [])
+        it "Check String conversion String" $ do
+            evalAst [] (Call "@" [AST.String "Blegh"]) `shouldBe` (Right (Just (AST.String "Blegh")), [])
+        it "Check String conversion Value" $ do
+            evalAst [] (Call "@" [AST.Value 8]) `shouldBe` (Right (Just (AST.String "8")), [])
+        it "Check String conversion Boolean" $ do
+            evalAst [Variable "x" (AST.Value 5) 0] (Call "@" [AST.Symbol "x" Nothing]) `shouldBe` (Right (Just (AST.String "5")), [Variable "x" (AST.Value 5) 0])
+        it "Check String conversion Symbol" $ do
+            evalAst [] (Call "@" [AST.Boolean True]) `shouldBe` (Right (Just (AST.String "True")), [])
+        it "Check String conversion Lambda" $ do
+            evalAst [] (Call "@" [AST.FunctionValue ["x"] (AST.Symbol "x" Nothing) Nothing]) `shouldBe` (Left "Cannot convert lambda to string", [])
+        it "Check invalid String conversion" $ do
+            evalAst [] (Call "@" []) `shouldBe` (Left "Not enough parameters for string conversion", [])
+        it "Check invalid String conversion 2" $ do
+            evalAst [] (Call "@" [AST.Value 8, AST.Value 8]) `shouldBe` (Left "Too much parameters for string conversion", [])
+        it "Check invalid String conversion 3" $ do
+            evalAst [] (Call "@" [Define "a" (AST.Value 5)]) `shouldBe` (Left "Cannot convert no evaluation to string", [])
+        it "Check invalid String conversion 4" $ do
+            evalAst [] (Call "@" [Call "+" [AST.Value 5, AST.Boolean True]]) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [])
         -- Value operators
         it "Check valid operation +" $ do
             evalAst [] (Call "+" [AST.Value 5, AST.Value 8]) `shouldBe` (Right (Just (AST.Value 13)), [])
@@ -99,46 +119,44 @@ spec = do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '&&'", [])
         -- Check Define
         it "Check unknown variable" $ do
-            evalAst (beginScope []) (AST.Symbol "bar") `shouldBe` (Left "Variable 'bar' doesn't exist", [ScopeBegin])
+            evalAst (beginScope []) (AST.Symbol "bar" Nothing) `shouldBe` (Left "Symbol 'bar' doesn't exist in the current or global scope", [ScopeBegin 0])
         it "Check unknown function" $ do
-            evalAst (beginScope []) (AST.Call "foo" []) `shouldBe` (Left "Function 'foo' not found", [ScopeBegin])
+            evalAst (beginScope []) (AST.Symbol "foo" (Just [])) `shouldBe` (Left "Symbol 'foo' doesn't exist in the current or global scope", [ScopeBegin 0])
         it "Check variable definition" $ do
-            evalAst (beginScope []) (Define "foo" (AST.Value 1)) `shouldBe` (Right Nothing, [Variable "foo" (AST.Value 1), ScopeBegin])
+            evalAst (beginScope []) (Define "foo" (AST.Value 1)) `shouldBe` (Right Nothing, [Variable "foo" (AST.Value 1) 0, ScopeBegin 0])
         it "Check variable definition 2" $ do
-            evalAst (beginScope []) (Define "bar" (Call "+" [AST.Value 1, AST.Value 5])) `shouldBe` (Right Nothing, [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]), ScopeBegin])
+            evalAst (beginScope []) (Define "bar" (Call "+" [AST.Value 1, AST.Value 5])) `shouldBe` (Right Nothing, [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
         it "Check variable usage" $ do
-            evalAst [Variable "foo" (AST.Value 1), ScopeBegin] (AST.Symbol "foo") `shouldBe` (Right (Just (AST.Value 1)), [Variable "foo" (AST.Value 1), ScopeBegin])
+            evalAst [Variable "foo" (AST.Value 1) 0, ScopeBegin 0] (AST.Symbol "foo" Nothing) `shouldBe` (Right (Just (AST.Value 1)), [Variable "foo" (AST.Value 1) 0, ScopeBegin 0])
         it "Check variable usage 2" $ do
-            evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]), ScopeBegin] (AST.Symbol "bar") `shouldBe` (Right (Just (AST.Value 6)), [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]), ScopeBegin])
+            evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0] (AST.Symbol "bar" Nothing) `shouldBe` (Right (Just (AST.Value 6)), [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
         it "Check invalid function" $ do
-            evalAst [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Boolean True]), ScopeBegin] (Call "foo" [AST.Value 5]) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Boolean True]), ScopeBegin])
+            evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [AST.Value 5])) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0])
         it "Check basic function definition" $ do
-            evalAst (beginScope []) (Define "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]) Nothing)) `shouldBe` (Right Nothing, [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin])
+            evalAst (beginScope []) (Define "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing)) `shouldBe` (Right Nothing, [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0])
         it "Check basic function usage" $ do
-            evalAst [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin] (Call "foo" [AST.Value 5]) `shouldBe` (Right (Just (AST.Value 6)), [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin])
+            evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [AST.Value 5])) `shouldBe` (Right (Just (AST.Value 6)), [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0])
         it "Check invalid basic function usage (not enough parameters)" $ do
-            evalAst [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin] (Call "foo" []) `shouldBe` (Left "Function 'foo' takes 1 parameters, got 0", [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin])
+            evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [])) `shouldBe` (Left "Expression takes 1 parameters, got 0", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0])
         it "Check invalid basic function usage (too much parameters)" $ do
-            evalAst [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin] (Call "foo" [AST.Value 5, AST.Value 5, AST.Value 5]) `shouldBe` (Left "Function 'foo' takes 1 parameters, got 3", [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin])
+            evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [AST.Value 5, AST.Value 5, AST.Value 5])) `shouldBe` (Left "Expression takes 1 parameters, got 3", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0])
         it "Check invalid basic function usage (define inside parameters)" $ do
-            evalAst [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin] (Call "foo" [Define "a" (AST.Value 5)]) `shouldBe` (Left "No evaluation in one or more parameters of 'foo'", [Function "foo" ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]), ScopeBegin])
+            evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [Define "a" (AST.Value 5)])) `shouldBe` (Left "No evaluation in one or more parameters of expression", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) Nothing) 0, ScopeBegin 0])
         it "Check multi-parameters function definition" $ do
-            evalAst (beginScope []) (Define "3+" (FunctionValue ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a", AST.Symbol "b"], AST.Symbol "c"]) Nothing)) `shouldBe` (Right Nothing, [Function "3+" ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a", AST.Symbol "b"], AST.Symbol "c"]), ScopeBegin])
+            evalAst (beginScope []) (Define "3+" (FunctionValue ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing], AST.Symbol "c" Nothing]) Nothing)) `shouldBe` (Right Nothing, [Variable  "3+" (FunctionValue ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing], AST.Symbol "c" Nothing]) Nothing) 0, ScopeBegin 0])
         it "Check multi-parameters function usage" $ do
-            evalAst [Function "3+" ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a", AST.Symbol "b"], AST.Symbol "c"]), ScopeBegin] (Call "3+" [AST.Value 5, AST.Value 6, AST.Value (-9)]) `shouldBe` (Right (Just (AST.Value 2)), [Function "3+" ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a", AST.Symbol "b"], AST.Symbol "c"]), ScopeBegin])
+            evalAst [Variable  "3+" (FunctionValue ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing], AST.Symbol "c" Nothing]) Nothing) 0, ScopeBegin 0] (Symbol "3+" (Just [AST.Value 5, AST.Value 6, AST.Value (-9)])) `shouldBe` (Right (Just (AST.Value 2)), [Variable  "3+" (FunctionValue ["a", "b", "c"] (Call "+" [AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing], AST.Symbol "c" Nothing]) Nothing) 0, ScopeBegin 0])
         -- Check Lambda usage
         it "Check +1 lambda" $ do
-            evalAst [] (FunctionValue ["x"] (Call "+" [AST.Symbol "x", AST.Value 1]) (Just [AST.Value 5])) `shouldBe` (Right (Just (AST.Value 6)), [])
+            evalAst [] (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Value 1]) (Just [AST.Value 5])) `shouldBe` (Right (Just (AST.Value 6)), [])
         it "Check square lambda" $ do
-            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x", AST.Symbol "x"]) (Just [AST.Value 5])) `shouldBe` (Right (Just (AST.Value 25)), [])
+            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "x" Nothing]) (Just [AST.Value 5])) `shouldBe` (Right (Just (AST.Value 25)), [])
         it "Check invalid lambda usage (not enough parameters)" $ do
-            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x", AST.Symbol "x"]) (Just [])) `shouldBe` (Left "Lambda takes 1 parameters, got 0", [])
+            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "x" Nothing]) (Just [])) `shouldBe` (Left "Expression takes 1 parameters, got 0", [])
         it "Check invalid lambda usage (too much parameters)" $ do
-            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x", AST.Symbol "x"]) (Just [AST.Value 5, AST.Value 5])) `shouldBe` (Left "Lambda takes 1 parameters, got 2", [])
+            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "x" Nothing]) (Just [AST.Value 5, AST.Value 5])) `shouldBe` (Left "Expression takes 1 parameters, got 2", [])
         it "Check invalid lambda usage (define inside parameters)" $ do
-            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x", AST.Symbol "x"]) (Just [Define "a" (AST.Value 5)])) `shouldBe` (Left "No evaluation in one or more parameters of lambda", [])
-        it "Check lambda not used" $ do
-            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x", AST.Symbol "x"]) Nothing) `shouldBe` (Right Nothing, [])
+            evalAst [] (FunctionValue ["x"] (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "x" Nothing]) (Just [Define "a" (AST.Value 5)])) `shouldBe` (Left "No evaluation in one or more parameters of expression", [])
         -- Check Cond
         it "Check true Cond" $ do
             evalAst [] (Cond (AST.Boolean True) (AST.Value 5) Nothing) `shouldBe` (Right (Just (AST.Value 5)), [])
@@ -154,6 +172,6 @@ spec = do
             evalAst [] (Cond (AST.Value 5) (AST.Value 6) Nothing) `shouldBe` (Left "Condition isn't a boolean", [])
         -- Advanced tests
         it "Check factorial definition" $ do
-            evalAst [] (Define "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x"]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x", Call "fact" [Call "-" [AST.Symbol "x", AST.Value 1]]]))) Nothing)) `shouldBe` (Right Nothing, [Function "fact" ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x"]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x", Call "fact" [Call "-" [AST.Symbol "x", AST.Value 1]]])))])
+            evalAst [] (Define "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing)) `shouldBe` (Right Nothing, [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0])
         it "Check factorial usage" $ do
-            evalAst [Function "fact" ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x"]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x", Call "fact" [Call "-" [AST.Symbol "x", AST.Value 1]]])))] (Call "fact" [AST.Value 6]) `shouldBe` (Right (Just (AST.Value 720)), [Function "fact" ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x"]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x", Call "fact" [Call "-" [AST.Symbol "x", AST.Value 1]]])))])
+            evalAst [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0] (Symbol "fact" (Just [AST.Value 6])) `shouldBe` (Right (Just (AST.Value 720)), [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0])

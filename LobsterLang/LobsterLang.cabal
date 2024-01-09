@@ -33,6 +33,7 @@ library
       Scope
       SExpr
       Stack
+      Utils
       Vm
   other-modules:
       Paths_LobsterLang
@@ -67,7 +68,6 @@ test-suite LobsterLang-test
   main-is: Spec.hs
   other-modules:
       AstEvalSpec
-      ParseSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:
