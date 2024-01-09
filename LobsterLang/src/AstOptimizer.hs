@@ -15,7 +15,7 @@ where
 import AST
 import AstEval
 import Data.Maybe
-import Scope (ScopeMb)
+import Scope (ScopeMb, getVarInScope)
 
 data AstError = Error String Ast deriving (Eq, Show)
 
@@ -28,7 +28,7 @@ optimizeAst :: [ScopeMb] -> [Ast] -> Bool -> [Either AstError AstOptimised]
 optimizeAst stack ((Value v) : xs) inFunc = Right (Result (Value v)) : optimizeAst stack xs inFunc
 optimizeAst stack ((Boolean b) : xs) inFunc = Right (Result (Boolean b)) : optimizeAst stack xs inFunc
 optimizeAst stack ((String str) : xs) inFunc = Right (Result (String str)) : optimizeAst stack xs inFunc
-optimizeAst stack ((List asts) : xs)  inFunc= case sequence (optimizeAst stack asts inFunc) of
+optimizeAst stack ((List asts) : xs) inFunc = case sequence (optimizeAst stack asts inFunc) of
   Left err -> Left err : optimizeAst stack xs inFunc
   Right opAst -> Right (Result (List (map fromOptimised opAst))) : optimizeAst stack xs inFunc
 optimizeAst stack ((Define n ast) : xs) inFunc = case optimizeAst stack [ast] inFunc of
@@ -36,7 +36,11 @@ optimizeAst stack ((Define n ast) : xs) inFunc = case optimizeAst stack [ast] in
   [Right (Result opAst)] -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
   [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs inFunc
   _ -> Right (Warning "This situation shouldn't happen" (Define n ast)) : optimizeAst stack xs inFunc
-optimizeAst stack ((Symbol s Nothing) : xs) inFunc = Right (Result (Symbol s Nothing)) : optimizeAst stack xs inFunc
+optimizeAst stack ((Symbol s Nothing) : xs) inFunc
+  | inFunc = Right (Result (Symbol s Nothing)) : optimizeAst stack xs inFunc
+  | otherwise = case getVarInScope stack s of
+    Nothing -> Left (Error ("Symbol '" ++ s ++ "' doesn't exist in the current or global scope") (Symbol s Nothing)) : optimizeAst stack xs inFunc
+    Just _ -> Right (Result (Symbol s Nothing)) : optimizeAst stack xs inFunc
 optimizeAst stack ((Symbol s (Just asts)) : xs) inFunc
   | foldr ((&&) . isUnoptimizable) True asts = case evalAst stack (Symbol s (Just asts)) of
       (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)

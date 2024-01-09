@@ -28,7 +28,23 @@ spec = do
         it "Basic String" $ do
             optimizeAst [] [String "blegh"] False `shouldBe` [Right (Result (String "blegh"))]
         it "Basic String (multiple)" $ do
-            optimizeAst [] [String "blegh", String False] "aaaaa" `shouldBe` [Right (Result (String "blegh")), Right (Result (String "aaaaa"))]
+            optimizeAst [] [String "blegh", String "aaaaa"] False `shouldBe` [Right (Result (String "blegh")), Right (Result (String "aaaaa"))]
+    describe "List Ast optimization tests" $ do
+        it "Empty list" $ do
+            optimizeAst [] [List []] False `shouldBe` [Right (Result (List []))]
+        it "Unoptimizable list" $ do
+            optimizeAst [] [List [Value 5, Boolean True, Value 9, String "vzb"]] False `shouldBe` [Right (Result (List [Value 5, Boolean True, Value 9, String "vzb"]))]
+        it "Unoptimizable list 2" $ do
+            optimizeAst [Variable "a" (Value 5) 0] [List [Value 5, Symbol "a" Nothing]] False `shouldBe` [Right (Result (List [Value 5, Symbol "a" Nothing]))]
+        it "Unoptimizable list error" $ do
+            optimizeAst [] [List [Value 5, Symbol "a" Nothing]] False `shouldBe` [Left (Error "Symbol 'a' doesn't exist in the current or global scope" (Symbol "a" Nothing))]
+    describe "Define Ast optimization tests" $ do
+        it "Unoptimizable Define" $ do
+            optimizeAst [] [Define "a" (Value 5)] False `shouldBe` [Right (Result (Define "a" (Value 5)))]
+        it "Optimizable Define" $ do
+            optimizeAst [] [Define "a" (Call "+" [Value 5, Value 5])] False `shouldBe` [Right (Result (Define "a" (Value 10)))]
+        it "Error Define" $ do
+            optimizeAst [] [Define "a" (Call "+" [Value 5])] False `shouldBe` [Left (Error "Not enough parameter for binary operator '+'" (Call "+" [Value 5]))]
     describe "Operator Ast optimization tests" $ do
         it "Optimize +" $ do
             optimizeAst [] [Call "+" [Value 5, Value 8]] False `shouldBe` [Right (Result (Value 13))]
