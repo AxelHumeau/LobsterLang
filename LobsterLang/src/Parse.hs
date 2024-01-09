@@ -211,13 +211,33 @@ parseSymbol = Symbol <$> parseElem parseString
 parseValue :: Parser SExpr
 parseValue = Value <$> parseElem parseInt
 
+parseListElem :: Parser a -> Parser [a]
+parseListElem parserA = Parser (parseFirst parserA)
+    where
+        parseFirst :: Parser a -> Position -> String -> Either String ([a], String, Position)
+        parseFirst parser pos s = case runParser parser pos s of
+            Left _ -> Right ([], s, pos)
+            Right (res, s', pos') -> case runParser (parseChar ',') pos' s' of
+                Left _ -> Right ([res], s, pos)
+                Right _ -> case (parseOthers parser pos' s') of
+                    Left err -> Left err
+                    Right (res', s'', pos'') -> Right(res : res', s'', pos'')
+        parseOthers :: Parser a -> Position -> String -> Either String ([a], String, Position)
+        parseOthers parser pos s = case runParser (parseChar ',') pos s of
+            Left _ -> Right ([], s, pos)
+            Right (_, s', pos') -> case runParser parser pos' s' of
+                Left err -> Left err
+                Right (res, s'', pos'') -> case (parseOthers parser pos'' s'') of
+                    Left err -> Left err
+                    Right (res', s''', pos''') -> Right (res : res', s''', pos''')
+
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
         parseEnd = parseAnyString "|)" <* parseSpace <* parseLine
-        parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
+        parseListValue = parseSpace *> parseListElem parser <* parseSpace
         parseStart = parseSpace *> parseAnyString "(|"
 
 -- | Parse any character from a String
