@@ -49,6 +49,8 @@ import qualified AstEval
 import qualified AST
 import qualified Scope
 import Control.Applicative
+import Data.Maybe
+import Text.ParserCombinators.ReadPrec (reset)
 
 type Position = (Int, Int)
 
@@ -227,39 +229,78 @@ parseSymbol :: Parser AST.Ast
 parseSymbol = AST.Symbol <$> parseElem parseString
 
 parseExpr :: Parser AST.Ast
-parseExpr = parseSum
+parseExpr = parseFuncOperator
+
+parseFuncOperator :: Parser AST.Ast
+parseFuncOperator = do res <- parseCondOperator
+                       res' <- optional (parseChar '$'
+                                            >>= \res' -> parseFuncOperator
+                                                >>= \res'' -> return $ AST.Call [res'] [res, res''])
+                       return $ fromMaybe res res'
+
+parseCondOperator :: Parser AST.Ast
+parseCondOperator = do res <- parseCompOperator
+                       res' <- optional (parseAnyString "&&" <|>
+                                         parseAnyString "||" <|>
+                                         parseAnyString "^^"
+                                            >>= \res' -> parseCondOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
+
+parseCompOperator :: Parser AST.Ast
+parseCompOperator = do res <- parseSum
+                       res' <- optional (parseAnyString "==" <|>
+                                         parseAnyString ">=" <|>
+                                         parseAnyString "!=" <|>
+                                         parseAnyString "<=" <|>
+                                         parseAnyString ">" <|>
+                                         parseAnyString "<"
+                                            >>= \res' -> parseCompOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
 
 parseSum :: Parser AST.Ast
-parseSum = parseWhiteSpace *> Parser f <* parseWhiteSpace
-    where
-        f :: Position -> String -> Either String (AST.Ast, String, Position)
-        f pos s = case runParser parseProduct pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> case runParser (parseAnyChar "+-") pos' s' of
-                Left _ -> Right (res, s', pos')
-                Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
-                    Left err'' -> Left err''
-                    Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+-- parseSum = parseWhiteSpace *> Parser f <* parseWhiteSpace
+--     where
+--         f :: Position -> String -> Either String (AST.Ast, String, Position)
+--         f pos s = case runParser parseProduct pos s of
+--             Left err -> Left err
+--             Right (res, s', pos') -> case runParser (parseAnyChar "+-") pos' s' of
+--                 Left _ -> Right (res, s', pos')
+--                 Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
+--                     Left err'' -> Left err''
+--                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+parseSum = do res <- parseProduct
+              res' <- optional (parseAnyChar "+-" >>= \res' -> parseSum >>= \res'' -> return $ AST.Call [res'] [res, res''])
+              return $ fromMaybe res res'
 
 parseProduct :: Parser AST.Ast
-parseProduct = parseWhiteSpace *> Parser f <* parseWhiteSpace
-    where
-        f :: Position -> String -> Either String (AST.Ast, String, Position)
-        f pos s = case runParser parseValue pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> case runParser (parseAnyChar "*/") pos' s' of
-                Left _ -> Right (res, s', pos')
-                Right (res', s'', pos'') -> case runParser parseProduct pos'' s'' of
-                    Left err'' -> Left err''
-                    Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+-- parseProduct = parseWhiteSpace *> Parser f <* parseWhiteSpace
+--     where
+--         f :: Position -> String -> Either String (AST.Ast, String, Position)
+--         f pos s = case runParser parseValue pos s of
+--             Left err -> Left err
+--             Right (res, s', pos') -> case runParser (parseAnyChar "*/") pos' s' of
+--                 Left _ -> Right (res, s', pos')
+--                 Right (res', s'', pos'') -> case runParser parseProduct pos'' s'' of
+--                     Left err'' -> Left err''
+--                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
 
--- parseProduct = parseValue >>= \res -> case optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'') of
--- --  -> return $ AST.Call [res'] [res, res''] of
---     Nothing -> 
---     Just res -> res
+
+parseProduct = do res <- parseListOperator
+                  res' <- optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res''])
+                  return $ fromMaybe res res'
+
+parseListOperator :: Parser AST.Ast
+parseListOperator = do res <- parseValue
+                       res' <- optional (parseAnyString "--" <|> parseAnyString "++" <|> parseAnyString "!!" >>= \res' -> parseListOperator >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
+-- parseProduct = fromMaybe parseValue >>=
+    -- \res -> fromMaybe (return res) (optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res'']))
+    -- \res ->  optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res''])
 -- parseProduct = do
         -- (res, s, pos) <- parseValue
-        
+
 -- parseProduct = parseValue >>= \(res, s, pos) -> parseAnyChar "*/" pos res
 -- parseProduct = parseValue *> parseAnyChar "*/" <* parseProduct
 
@@ -378,12 +419,7 @@ parseDefineValue = Parser f
                     Right (res'', s''', pos''') -> Right (AST.Define res res'', s''', pos''')
 
 parseBinaryOperator :: Parser String
-parseBinaryOperator = parseWhiteSpace *> parseAnyString "+" <|>
-                      parseWhiteSpace *> parseAnyString "-" <|>
-                      parseWhiteSpace *> parseAnyString "*" <|>
-                      parseWhiteSpace *> parseAnyString "/" <|>
-                      parseWhiteSpace *> parseAnyString "%" <|>
-                      parseWhiteSpace *> parseAnyString "==" <|>
+parseBinaryOperator = parseWhiteSpace *> parseAnyString "==" <|>
                       parseWhiteSpace *> parseAnyString "!=" <|>
                       parseWhiteSpace *> parseAnyString "<" <|>
                       parseWhiteSpace *> parseAnyString "<=" <|>
@@ -399,14 +435,14 @@ parseBinaryOperator = parseWhiteSpace *> parseAnyString "+" <|>
 
 parseBinaryOperation :: Parser AST.Ast
 -- parseBinaryOperation = parseAstValue >>= \(res, s', pos') -> parseBinaryOperator
-parseBinaryOperation = Parser f
+parseBinaryOperation = parseExpr <|> Parser f
     where
         f :: Position -> String -> Either String (AST.Ast, String, Position)
         f pos s = case runParser parseAstValue pos s of
             Left err -> Left err
             Right (res, s', pos') -> case runParser parseBinaryOperator pos' s' of
-                Left err' -> Left err'
-                Right (res', s'', pos'') -> case runParser parseAst pos'' s'' of
+                Left err' -> Right (res, s', pos')
+                Right (res', s'', pos'') -> case runParser parseBinaryOperation pos'' s'' of
                     Left err'' -> Left err''
                     Right (res'', s''', pos''') -> Right (AST.Call res' (res : [res'']), s''', pos''')
 
@@ -432,7 +468,8 @@ parseAstValue = parseWhiteSpace *> parseValue <|> parseWhiteSpace *> parseSymbol
 parseAst :: Parser AST.Ast
 parseAst =
         parseWhiteSpace *> parseDefineValue
-        <|> parseWhiteSpace *> parseBinaryOperation
+        <|> parseWhiteSpace *> parseExpr
+        -- <|> parseWhiteSpace *> parseBinaryOperation
         <|> parseWhiteSpace *> parseUnaryOperation
         <|> parseWhiteSpace *> parseBool
         <|> parseWhiteSpace *> parseSymbol
