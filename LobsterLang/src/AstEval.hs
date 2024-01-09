@@ -15,7 +15,7 @@ module AstEval
 where
 
 import AST
-import qualified Data.Bifunctor
+import Data.Bifunctor
 import SExpr
 import Scope
 
@@ -39,9 +39,13 @@ sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s Nothing)
 -- or a 'String' containing the error message in case of error
 -- and the stack after evaluation.
 evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
-evalAst stack (Define s v) = case getVarInScope stack s of
-  Nothing -> (Right Nothing, addVarToScope stack s v)
-  Just _ -> (Right Nothing, updateVar stack s v)
+evalAst stack (Define s v) = case defineVar defineFunc stack s v of
+  Left err -> (Left err, stack)
+  Right stack' -> (Right Nothing, stack')
+  where
+    defineFunc = case getVarInScope stack s of
+      Nothing -> addVarToScope
+      Just _ -> updateVar
 evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s asts) = case getVarInScope stack s of
   Nothing -> (Left ("Symbol '" ++ s ++ "' doesn't exist in the current or global scope"), stack)
@@ -81,11 +85,21 @@ evalAst stack (Call "!!" astList) = case getElemInAstList stack (Call "!!" astLi
   Left err -> (Left err, stack)
   Right ast' -> (Right (Just ast'), stack)
 evalAst stack (Call "len" astList) = evalUnListOp (AST.Value . length) stack (Call "len" astList)
+evalAst stack (Call "$" [ast1, ast2]) = case evalAst stack ast1 of
+  (Left err, _) -> (Left err, stack)
+  (Right _, stack') -> case evalAst stack' ast2 of
+    (Left err', _) -> (Left err', stack)
+    (Right ast, stack'') -> (Right ast, stack'')
+evalAst stack (Call "$" (_ : _)) = (Left "Too much parameters for operator $ (needs 2)", stack)
+evalAst stack (Call "$" []) = (Left "Not enough parameters for operator $ (needs 2)", stack)
 evalAst stack (Call unknown _) = (Left ("Unknown operator: " ++ unknown), stack)
 evalAst stack (FunctionValue params ast Nothing) =
   (Right (Just (FunctionValue params ast Nothing)), stack)
+evalAst stack (FunctionValue [] ast (Just [])) = Data.Bifunctor.second clearScope (evalAst (beginScope stack) ast)
+evalAst stack (FunctionValue params ast (Just [])) =
+  (Right (Just (FunctionValue params ast Nothing)), stack)
 evalAst stack (FunctionValue params ast (Just asts))
-  | length params /= length asts =
+  | length params < length asts =
       ( Left
           ( "Expression takes "
               ++ show (length params)
@@ -94,11 +108,11 @@ evalAst stack (FunctionValue params ast (Just asts))
           ),
         stack
       )
-  | otherwise = case evalSubParams stack asts of
-      Left err -> (Left err, stack)
-      Right mEAsts -> case mEAsts of
-        Nothing -> (Left "No evaluation in one or more parameters of expression", stack)
-        Just eAsts -> Data.Bifunctor.second clearScope (evalAst (addVarsToScope (beginScope stack) params eAsts) ast)
+  | otherwise = case evalAst stack (head asts) of
+    (Left err, _) -> (Left err, stack)
+    (Right Nothing, _) -> (Left "No evaluation in one or more parameters of expression", stack)
+    (Right (Just ast'), _) ->
+      evalAst stack (FunctionValue (tail params) (Call "$" [Define (head params) ast', ast]) (Just (tail asts)))
 evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
   | b = evalAst stack a1
   | otherwise = evalAst stack a2
@@ -247,6 +261,7 @@ getElemInAstList _ (Call "!!" [AST.FunctionValue _ _ Nothing, _]) =
 getElemInAstList _ (Call "!!" [_, AST.FunctionValue _ _ Nothing]) =
   Left "One or more parameters of binary operator '!!' is invalid"
 getElemInAstList _ (Call "!!" [AST.List a, AST.Value b])
+  | b < 0 = Left "Index out of range"
   | length a > b = Right (a !! b)
   | otherwise = Left "Index out of range"
 getElemInAstList stack (Call "!!" [ast1, ast2]) =
@@ -321,3 +336,9 @@ astToString stack ast = case evalAst stack ast of
       (Left "Cannot convert no evaluation to string")
       (astToString stack)
       ast'
+
+defineVar :: ([ScopeMb] -> String -> Ast -> [ScopeMb]) -> [ScopeMb] -> String -> Ast -> Either String [ScopeMb]
+defineVar f stack name ast = case evalAst stack ast of
+  (Left err, _) -> Left err
+  (Right (Just ast'), _) -> Right (f stack name ast')
+  (Right Nothing, _) -> Left "Cannot define with no value"

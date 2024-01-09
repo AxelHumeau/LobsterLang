@@ -126,9 +126,9 @@ instance Enum Instruction where
 astToInstructions :: Ast -> [Instruction]
 astToInstructions (Value value) = [PushI value]
 astToInstructions (Boolean bool) = [PushB bool]
-astToInstructions (Symbol symbolName) = [PushS symbolName]
+astToInstructions (Symbol symbolName Nothing) = [PushS symbolName]
 astToInstructions (AST.Call "-" [Value value]) = [PushI (-value)] -- Probably useless
-astToInstructions (AST.Call "-" [Symbol symbolName]) = PushS symbolName : [Neg]
+astToInstructions (AST.Call "-" [Symbol symbolName Nothing]) = PushS symbolName : [Neg]
 astToInstructions (AST.Call "!" [Boolean bool]) = [PushB (not bool)]
 astToInstructions (AST.Call "+" args) =
   concatMap astToInstructions args ++ [Add]

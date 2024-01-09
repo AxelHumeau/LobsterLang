@@ -23,9 +23,9 @@ spec = do
         it "Check astToInstructions Boolean success" $ do
             astToInstructions (AST.Boolean True) `shouldBe` [PushB True]
         it "Check astToInstructions Symbol not empty" $ do
-            astToInstructions (AST.Symbol "foo") `shouldNotBe` []
+            astToInstructions (AST.Symbol "foo" Nothing) `shouldNotBe` []
         it "Check astToInstructions Symbol success" $ do
-            astToInstructions (AST.Symbol "foo") `shouldBe` [PushS "foo"]
+            astToInstructions (AST.Symbol "foo" Nothing) `shouldBe` [PushS "foo"]
 
         -- Call - User defined functions
         it "Check astToInstructions Call not empty" $ do
@@ -39,7 +39,7 @@ spec = do
         it "Check astToInstructions Call built-in \"-\"" $ do
             astToInstructions (AST.Call "-" [(AST.Value 42), (AST.Value 84)]) `shouldBe` [PushI 42, PushI 84, Sub]
         it "Check astToInstructions Call built-in \"-\" (Symbol Negation)" $ do
-            astToInstructions (AST.Call "-" [(AST.Symbol "foo")]) `shouldBe` [PushS "foo", Neg]
+            astToInstructions (AST.Call "-" [(AST.Symbol "foo" Nothing)]) `shouldBe` [PushS "foo", Neg]
         it "Check astToInstructions Call built-in \"!\" (Bool Invertion)" $ do
             astToInstructions (AST.Call "!" [(AST.Boolean True)]) `shouldBe` [PushB False]
         it "Check astToInstructions Call built-in \"*\"" $ do
