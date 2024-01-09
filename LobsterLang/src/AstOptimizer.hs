@@ -33,7 +33,12 @@ optimizeAst stack ((List asts) : xs) inFunc = case sequence (optimizeAst stack a
   Right opAst -> Right (Result (List (map fromOptimised opAst))) : optimizeAst stack xs inFunc
 optimizeAst stack ((Define n ast) : xs) inFunc = case optimizeAst stack [ast] inFunc of
   [Left err] -> Left err : optimizeAst stack xs inFunc
-  [Right (Result opAst)] -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
+  [Right (Result opAst)] -> case evalAst stack (Define n opAst) of
+    (Right _, stack') -> Right (Result (Define n opAst)) : optimizeAst stack' xs inFunc
+    (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)
+      | inFunc -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
+      | otherwise -> Left (Error ('S':'y':'m':'b':'o':'l':' ':'\'':xs') (Define n opAst)) : optimizeAst stack xs inFunc
+    (Left err, _) -> Left (Error err (Define n opAst)) : optimizeAst stack xs inFunc
   [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs inFunc
   _ -> Right (Warning "This situation shouldn't happen" (Define n ast)) : optimizeAst stack xs inFunc
 optimizeAst stack ((Symbol s Nothing) : xs) inFunc
@@ -51,7 +56,7 @@ optimizeAst stack ((Symbol s (Just asts)) : xs) inFunc
       _ -> Right (Warning "This situation shouldn't happen" (Symbol s (Just asts))) : optimizeAst stack xs inFunc
   | otherwise = case sequence (optimizeAst stack asts inFunc) of
       Left err -> Left err : optimizeAst stack xs inFunc
-      Right opAst -> Right (Result (Symbol s (Just (map fromOptimised opAst)))) : optimizeAst stack xs inFunc
+      Right opAst -> optimizeAst stack (Symbol s (Just (map fromOptimised opAst)):xs) inFunc
 optimizeAst stack ((Call op asts) : xs) inFunc
   | foldr ((&&) . isUnoptimizable) True asts
       && foldr ((&&) . isValue) True asts = case evalAst stack (Call op asts) of

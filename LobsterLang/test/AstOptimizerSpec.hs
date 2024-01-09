@@ -45,6 +45,31 @@ spec = do
             optimizeAst [] [Define "a" (Call "+" [Value 5, Value 5])] False `shouldBe` [Right (Result (Define "a" (Value 10)))]
         it "Error Define" $ do
             optimizeAst [] [Define "a" (Call "+" [Value 5])] False `shouldBe` [Left (Error "Not enough parameter for binary operator '+'" (Call "+" [Value 5]))]
+        it "Error Define 2" $ do
+            optimizeAst [] [Define "a" (Define "b" (Value 2))] False `shouldBe` [Left (Error "Cannot define with no value" (Define "a" (Define "b" (Value 2))))]
+        it "Error Define 3" $ do
+            optimizeAst [] [Define "a" (Symbol "b" Nothing)] False `shouldBe` [Left (Error "Symbol 'b' doesn't exist in the current or global scope" (Symbol "b" Nothing))]
+        it "Define from symbol in function" $ do
+            optimizeAst [] [Define "a" (Symbol "b" Nothing)] True `shouldBe` [Right (Result (Define "a" (Symbol "b" Nothing)))]
+    describe "Symbol Ast optimization tests" $ do
+        it "Simple symbol (in function)" $ do
+            optimizeAst [] [Symbol "a" Nothing] True `shouldBe` [Right (Result (Symbol "a" Nothing))]
+        it "Simple symbol (out of function)" $ do
+            optimizeAst [Variable "a" (Value 5) 0] [Symbol "a" Nothing] False `shouldBe` [Right (Result (Symbol "a" Nothing))]
+        it "Error doesn't exist symbol (out of function)" $ do
+            optimizeAst [] [Symbol "a" Nothing] False `shouldBe` [Left (Error "Symbol 'a' doesn't exist in the current or global scope" (Symbol "a" Nothing))]
+        it "Error function symbol (in function) with unoptimizable params (doesn't exist)" $ do
+            optimizeAst [] [Symbol "a" (Just [Value 5])] True `shouldBe` [Right (Result (Symbol "a" (Just [Value 5])))]
+        it "Error function symbol (out of function) with unoptimizable params" $ do
+            optimizeAst [] [Symbol "a" (Just [Value 5])] False `shouldBe` [Left (Error "Symbol 'a' doesn't exist in the current or global scope" (Symbol "a" (Just [Value 5])))]
+        it "Simple function symbol (out of function) with unoptimizable params" $ do
+            optimizeAst [Variable "a" (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 1]) Nothing) 0] [Symbol "a" (Just [Value 5])] False `shouldBe` [Right (Result (Symbol "a" (Just [Value 5])))]
+        it "Error function symbol (out of function) with unoptimizable params" $ do
+            optimizeAst [Variable "a" (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 1]) Nothing) 0] [Symbol "a" (Just [Value 5, Value 6])] False `shouldBe` [Left (Error "Expression takes 1 parameters, got 2" (Symbol "a" (Just [Value 5, Value 6])))]
+        it "Simple function symbol (out of function) with optimizable params" $ do
+            optimizeAst [Variable "a" (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 1]) Nothing) 0] [Symbol "a" (Just [Call "+" [Value 1, Value 5]])] False `shouldBe` [Right (Result (Symbol "a" (Just [Value 6])))]
+        it "Error function symbol (out of function) with optimizable params" $ do
+            optimizeAst [Variable "a" (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 1]) Nothing) 0] [Symbol "a" (Just [Call "+" [Value 1, Boolean True]])] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [Value 1, Boolean True]))]
     describe "Operator Ast optimization tests" $ do
         it "Optimize +" $ do
             optimizeAst [] [Call "+" [Value 5, Value 8]] False `shouldBe` [Right (Result (Value 13))]
@@ -67,3 +92,5 @@ spec = do
     describe "Advanced Ast optimization tests" $ do
         it "Call then symbol" $ do
             optimizeAst [Variable "a" (Value 5) 0] [Call "-" [Value 5, Value 8], Call "+" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Value (-3))), Right (Result (Call "+" [Symbol "a" Nothing, Value 8]))]
+        it "Define then call" $ do
+            optimizeAst [] [Define "a" (Value 5), Call "-" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Define "a" (Value 5))), Right (Result (Call "-" [Symbol "a" Nothing, Value 8]))]
