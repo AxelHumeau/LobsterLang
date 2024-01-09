@@ -14,6 +14,7 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 import System.Environment (getArgs)
 import Control.Exception
 import SExpr (SExpr)
+-- import Compiler
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
@@ -35,6 +36,8 @@ compileFile :: String -> IO ()
 compileFile s = case runParser parseLisp (0, 0) s of
         Left err -> print err >> exitWith (ExitFailure 84)
         Right (res, _, _) -> interpretateInfo res []
+        -- (Right (Just res), stack') -> let instructions = (astToInstructions (AST.Cond (Boolean True) (Value 1) (Just (AST.Call "CallHere" [(Value 0)])))) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
+
 
 checkArgs :: [String] -> IO ()
 checkArgs ("-i": _) = print "Launch Interpreter" >> inputLoop []
