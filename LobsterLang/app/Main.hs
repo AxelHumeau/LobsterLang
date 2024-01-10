@@ -14,6 +14,7 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 import System.Environment (getArgs)
 import Control.Exception
 import qualified AST
+-- import Compiler
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
@@ -44,6 +45,8 @@ compileFile s = case runParser parseLobster (0, 0) s of
         Left err -> print err >> exitWith (ExitFailure 84)
         Right (res, [], _) -> compileInfo res []
         Right (_, _, (row, col)) -> print ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        -- (Right (Just res), stack') -> let instructions = (astToInstructions (AST.Cond (Boolean True) (Value 1) (Just (AST.Call "CallHere" [(Value 0)])))) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
+
 
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []

@@ -27,37 +27,27 @@ module Parse (
     parseElem,
     parseValue,
     parseLobster,
-    -- parseLisp,
     parseAnyString,
     parseSpace,
     parseLine,
     interpretateLisp,
     parseDefineValue,
-
-
-    parseToken,
-    parseBinaryOperation,
     parseUnaryOperation,
     parseProduct,
     parseSum,
     parseExpr
-    -- parseTuple,
 ) where
 
-import Control.Applicative (Alternative (..))
 import qualified AstEval
 import qualified AST
 import qualified Scope
 import Control.Applicative
 import Data.Maybe
-import Text.ParserCombinators.ReadPrec (reset)
 
 type Position = (Int, Int)
 
 data Parser a = Parser {
     runParser :: Position -> String -> Either String (a, String, Position)
-
-
 }
 
 data Token =  Number Int
@@ -226,7 +216,7 @@ parseString = parseWhiteSpace *> Parser f <* parseWhiteSpace
 
 -- | Return a data Parser that parse a String as a Symbol
 parseSymbol :: Parser AST.Ast
-parseSymbol = AST.Symbol <$> parseElem parseString
+parseSymbol = AST.String <$> parseElem parseString
 
 parseExpr :: Parser AST.Ast
 parseExpr = parseFuncOperator
@@ -378,47 +368,6 @@ parseFalse = Parser f
             Left err -> Left err
             Right (_, s', pos') -> Right (False, s', pos')
 
-parseSymbolToken :: Parser Token
-parseSymbolToken = Sym <$> (
-                        parseAnyString "=" <|>
-                        parseAnyString "->" <|>
-                        parseAnyString ":" <|>
-                        parseAnyString "==" <|>
-                        parseAnyString "<=" <|>
-                        parseAnyString ">=" <|>
-                        parseAnyString "<" <|>
-                        parseAnyString ">" <|>
-                        parseAnyString "!=" <|>
-                        parseAnyString "^^" <|>
-                        parseAnyString "||" <|>
-                        parseAnyString "&&" <|>
-                        parseAnyString "$" <|>
-                        parseAnyString "+" <|>
-                        parseAnyString "-" <|>
-                        parseAnyString "*" <|>
-                        parseAnyString "/" <|>
-                        parseAnyString "%" <|>
-                        parseAnyString "{" <|>
-                        parseAnyString "}" <|>
-                        parseAnyString "(|" <|>
-                        parseAnyString "|)" <|>
-                        parseAnyString "if" <|>
-                        parseAnyString "else" <|>
-                        parseAnyString "fn"
-                        )
-
-parseIdentifierToken :: Parser Token
-parseIdentifierToken = Identifier <$> parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z']))
-
-parseNumberToken :: Parser Token
-parseNumberToken = Number <$> parseInt
-
-parseToken :: Parser [Token]
-parseToken = parseSome (parseWhiteSpace *> parseElem parseSymbolToken <|>
-                        parseWhiteSpace *> parseElem parseIdentifierToken <|>
-                        parseWhiteSpace *> parseElem parseNumberToken)
-            <|> parseWhiteSpace *> parseElem parseToken
-
 parseDefineValue :: Parser AST.Ast
 parseDefineValue = Parser f
     where
@@ -430,34 +379,6 @@ parseDefineValue = Parser f
                 Right (_, s'', pos'') -> case runParser parseAst pos'' s'' of
                     Left err'' -> Left err''
                     Right (res'', s''', pos''') -> Right (AST.Define res res'', s''', pos''')
-
-parseBinaryOperator :: Parser String
-parseBinaryOperator = parseWhiteSpace *> parseAnyString "==" <|>
-                      parseWhiteSpace *> parseAnyString "!=" <|>
-                      parseWhiteSpace *> parseAnyString "<" <|>
-                      parseWhiteSpace *> parseAnyString "<=" <|>
-                      parseWhiteSpace *> parseAnyString ">" <|>
-                      parseWhiteSpace *> parseAnyString ">=" <|>
-                      parseWhiteSpace *> parseAnyString "&&" <|>
-                      parseWhiteSpace *> parseAnyString "||" <|>
-                      parseWhiteSpace *> parseAnyString "^^" <|>
-                      parseWhiteSpace *> parseAnyString "++" <|>
-                      parseWhiteSpace *> parseAnyString "--" <|>
-                      parseWhiteSpace *> parseAnyString "!!" <|>
-                      parseWhiteSpace *> parseAnyString "$"
-
-parseBinaryOperation :: Parser AST.Ast
--- parseBinaryOperation = parseAstValue >>= \(res, s', pos') -> parseBinaryOperator
-parseBinaryOperation = parseExpr <|> Parser f
-    where
-        f :: Position -> String -> Either String (AST.Ast, String, Position)
-        f pos s = case runParser parseAstValue pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> case runParser parseBinaryOperator pos' s' of
-                Left err' -> Right (res, s', pos')
-                Right (res', s'', pos'') -> case runParser parseBinaryOperation pos'' s'' of
-                    Left err'' -> Left err''
-                    Right (res'', s''', pos''') -> Right (AST.Call res' (res : [res'']), s''', pos''')
 
 parseUnaryOperator :: Parser String
 parseUnaryOperator = parseWhiteSpace *> parseAnyString "!"<|>
@@ -474,15 +395,11 @@ parseUnaryOperation = Parser f
                 Left err' -> Left err'
                 Right (res', s'', pos'') -> Right (AST.Call res [res'], s'', pos'')
 
-parseAstValue :: Parser AST.Ast
-parseAstValue = parseWhiteSpace *> parseValue <|> parseWhiteSpace *> parseSymbol
-
 -- | Return a Parser that parse a SExpr
 parseAst :: Parser AST.Ast
 parseAst =
         parseWhiteSpace *> parseDefineValue
         <|> parseWhiteSpace *> parseExpr
-        -- <|> parseWhiteSpace *> parseBinaryOperation
         <|> parseWhiteSpace *> parseUnaryOperation
         <|> parseWhiteSpace *> parseBool
         <|> parseWhiteSpace *> parseSymbol
@@ -499,19 +416,3 @@ interpretateLisp value stack = case AstEval.evalAst stack value of
         (Left err, _) -> Left err
         (Right res', stack') -> Right (res', stack')
 
-        --         -- Right (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
---        - Right (res, stack') -> print res >> inputLoop stack'
-        -- Right (_, stack') -> interpretateLisp xs stack' stack
--- interpretateLisp s stack new = case runParser (parseSome parseSExpr) (0, 0) s of
-    -- Left err -> Left err
-    -- Right (res, s', _) -> case AstEval.sexprToAst res of
-        -- Nothing -> Left "Error on evaluation"
-        -- Just value -> case AstEval.evalAst stack value of
-            -- (Nothing, stack') -> (if stack == new then Left "Error on evaluation" else parseLisp s' stack' new)
-            -- (_, stack'') -> parseLisp s' stack'' new
--- parseLisp :: String -> [Scope.ScopeMb] -> (Either String (Maybe AST.Ast), [Scope.ScopeMb])
--- parseLisp s stack = case runParser parseSExpr s of
---     Nothing -> (Left "Input is unparsable", [])
---     Just (res, _) -> case AstEval.sexprToAst res of
---         Nothing -> (Left "Cannot convert input in AST", [])
---         Just value -> AstEval.evalAst stack value
