@@ -1,0 +1,15 @@
+sqrt = λ (\ x: integer /) -> integer x * x
+
+add = λ (\ a: integer, b: integer /) -> integer a + b
+
+sqrt(\ 5 /) # return 25
+add(\ 2, 9 /) # return 11
+
+abs = λ (\ x: integer /) -> integer {
+    if x < 0 {
+        x * -1
+    else {
+        x
+    }
+}
+

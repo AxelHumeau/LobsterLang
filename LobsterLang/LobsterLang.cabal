@@ -27,7 +27,7 @@ library
   exposed-modules:
       AST
       AstEval
-      Lib
+      Compiler
       Parse
       Scope
       SExpr
@@ -60,6 +60,9 @@ executable LobsterLang-exe
   build-depends:
       LobsterLang
     , base >=4.7 && <5
+    , binary
+    , bytestring
+    , utf8-string
   default-language: Haskell2010
 
 test-suite LobsterLang-test
@@ -67,7 +70,7 @@ test-suite LobsterLang-test
   main-is: Spec.hs
   other-modules:
       AstEvalSpec
-      ParseSpec
+      CompilerSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:
@@ -78,5 +81,8 @@ test-suite LobsterLang-test
   build-depends:
       LobsterLang
     , base >=4.7 && <5
+    , binary
+    , bytestring
     , hspec
+    , utf8-string
   default-language: Haskell2010
