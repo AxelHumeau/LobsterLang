@@ -249,67 +249,36 @@ parseCompOperator = do res <- parseSum
                                                 >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
 
--- parseSub :: Parser AST.Ast
--- parseSub = parseWhiteSpace *> Parser f <* parseWhiteSpace
---     where
---         f :: Position -> String -> Either String (AST.Ast, String, Position)
---         f pos s = case runParser parseSub pos s of
---             Left err -> Left err
---             Right (res, s', pos') -> case runParser (parseAnyChar "-") pos' s' of
---                 Left _ -> Right (res, s', pos')
---                 Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
---                     Left err'' -> Left err''
---                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
-
-
 parseSum :: Parser AST.Ast
--- parseSum = parseWhiteSpace *> Parser f <* parseWhiteSpace
---     where
---         f :: Position -> String -> Either String (AST.Ast, String, Position)
---         f pos s = case runParser parseProduct pos s of
---             Left err -> Left err
---             Right (res, s', pos') -> case runParser (parseAnyChar "+-") pos' s' of
---                 Left _ -> Right (res, s', pos')
---                 Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
---                     Left err'' -> Left err''
---                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
 parseSum = do res <- parseProduct
-              res' <- optional (parseAnyChar "+-" >>= \res' -> parseSum >>= \res'' -> return $ AST.Call [res'] [res, res''])
+              res' <- optional (parseAnyChar "+-"
+                                    >>= \res' -> parseSum
+                                        >>= \res'' -> return $ AST.Call [res'] [res, res''])
               return $ fromMaybe res res'
 
 parseProduct :: Parser AST.Ast
--- parseProduct = parseWhiteSpace *> Parser f <* parseWhiteSpace
---     where
---         f :: Position -> String -> Either String (AST.Ast, String, Position)
---         f pos s = case runParser parseValue pos s of
---             Left err -> Left err
---             Right (res, s', pos') -> case runParser (parseAnyChar "*/") pos' s' of
---                 Left _ -> Right (res, s', pos')
---                 Right (res', s'', pos'') -> case runParser parseProduct pos'' s'' of
---                     Left err'' -> Left err''
---                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
-
-
 parseProduct = do res <- parseListOperator
-                  res' <- optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res''])
+                  res' <- optional (parseAnyChar "*/"
+                                    >>= \res' -> parseProduct
+                                        >>= \res'' -> return $ AST.Call [res'] [res, res''])
                   return $ fromMaybe res res'
 
 parseListOperator :: Parser AST.Ast
 parseListOperator = do res <- parseValue
-                       res' <- optional (parseAnyString "--" <|> parseAnyString "++" <|> parseAnyString "!!" >>= \res' -> parseListOperator >>= \res'' -> return $ AST.Call res' [res, res''])
+                       res' <- optional (parseAnyString "--" <|>
+                                         parseAnyString "++" <|>
+                                         parseAnyString "!!"
+                                            >>= \res' -> parseListOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
--- parseProduct = fromMaybe parseValue >>=
-    -- \res -> fromMaybe (return res) (optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res'']))
-    -- \res ->  optional (parseAnyChar "*/" >>= \res' -> parseProduct >>= \res'' -> return $ AST.Call [res'] [res, res''])
--- parseProduct = do
-        -- (res, s, pos) <- parseValue
-
--- parseProduct = parseValue >>= \(res, s, pos) -> parseAnyChar "*/" pos res
--- parseProduct = parseValue *> parseAnyChar "*/" <* parseProduct
 
 -- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser AST.Ast
-parseValue = AST.Value <$> parseElem parseInt <|> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <|> parseSymbol
+parseValue = parseWhiteSpace *> (
+                                 parseAnyString "(|" *> parseExpr <* parseAnyString "|)"
+                                 <|> AST.Value <$> parseElem parseInt
+                                 <|>parseSymbol
+                                )
 
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
