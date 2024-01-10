@@ -89,6 +89,31 @@ spec = do
             optimizeAst [] [Call "+" [List [Value 8, Value 9], Value 8]] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [List [Value 8, Value 9], Value 8]))]
         it "Error symbol doesn't exist" $ do
             optimizeAst [] [Call "+" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Left (Error "Symbol 'a' doesn't exist in the current or global scope" (Call "+" [Symbol "a" Nothing, Value 8]))]
+    describe "Cond Ast Optimizations" $ do
+        it "Optimize condition in Cond" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Call "||" [Boolean True, Boolean False], Symbol "a" Nothing]) (Value 1) Nothing] False `shouldBe` [Right (Result (Cond (Call "&&" [Boolean True, Symbol "a" Nothing]) (Value 1) Nothing))]
+        it "Optimize true ast in Cond" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Call "+" [Value 5, Value 8]) Nothing] False `shouldBe` [Right (Result (Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 13) Nothing))]
+        it "Optimize false ast in Cond" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 1) (Just (Call "+" [Value 5, Value 8]))] False `shouldBe` [Right (Result (Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 1) (Just (Value 13))))]
+        it "Optimize condition in Cond error" $ do
+            optimizeAst [] [Cond (Call "&&" [Symbol "a" Nothing, Call "||" [Boolean True, Boolean False]]) (Value 1) Nothing] False `shouldBe` [Left (Error "Symbol 'a' doesn't exist in the current or global scope" (Symbol "a" Nothing))]
+        it "Optimize true ast in Cond error" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Call "+" [String "bleg", Value 8]) Nothing] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [String "bleg", Value 8]))]
+        it "Optimize false ast in Cond error" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 1) (Just (Call "+" [Value 5, List [String "bleg"]]))] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [Value 5, List [String "bleg"]]))]
+        it "Optimize condition in Cond warning" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Cond (Boolean True) (Symbol "a" Nothing) Nothing) (Value 1) Nothing] False `shouldBe` [Right (Result (Cond (Symbol "a" Nothing) (Value 1) Nothing))]
+        it "Optimize true ast in Cond warning" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Cond (Boolean True) (Symbol "a" Nothing) Nothing) Nothing] False `shouldBe` [Right (Result (Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Symbol "a" Nothing) Nothing))]
+        it "Optimize false ast in Cond warning" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 1) (Just (Cond (Boolean True) (Symbol "a" Nothing) Nothing))] False `shouldBe` [Right (Result (Cond (Call "&&" [Symbol "a" Nothing, Boolean True]) (Value 1) (Just (Symbol "a" Nothing))))]
+        it "Optimize always true" $ do
+            optimizeAst [] [Cond (Boolean True) (Value 1) (Just (Value 8))] False `shouldBe` [Right (Warning "Condition is always true" (Value 1))]
+        it "Optimize always false" $ do
+            optimizeAst [] [Cond (Boolean False) (Value 1) (Just (Value 8))] False `shouldBe` [Right (Warning "Condition is always false" (Value 8))]
+        it "Optimize always false (no else)" $ do
+            optimizeAst [] [Cond (Boolean False) (Value 1) Nothing] False `shouldBe` [Right (Warning "Condition is always false" (Cond (Boolean False) (Value 1) Nothing))]
     describe "Advanced Ast optimization tests" $ do
         it "Call then symbol" $ do
             optimizeAst [Variable "a" (Value 5) 0] [Call "-" [Value 5, Value 8], Call "+" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Value (-3))), Right (Result (Call "+" [Symbol "a" Nothing, Value 8]))]
