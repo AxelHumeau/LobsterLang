@@ -110,8 +110,8 @@ optimizeAst stack ((FunctionValue params ast Nothing) : xs) inFunc = case optimi
 optimizeAst stack ((FunctionValue params ast (Just asts)) : xs) inFunc
   | not (isUnoptimizable ast) = case optimizeAst stack [ast] True of
       [Left err] -> Left err : optimizeAst stack xs inFunc
-      [Right (Result ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs) inFunc
-      [Right (Warning _ ast')] -> optimizeAst stack (FunctionValue params ast' Nothing : xs) inFunc
+      [Right (Result ast')] -> optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inFunc
+      [Right (Warning _ ast')] -> optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inFunc
       _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
   | not (foldr ((&&) . isUnoptimizable) True asts) = case sequence (optimizeAst stack asts inFunc) of
       Left err -> Left err : optimizeAst stack xs inFunc
@@ -120,7 +120,13 @@ optimizeAst stack ((FunctionValue params ast (Just asts)) : xs) inFunc
       (Left err, _) -> Left (Error err (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
       (Right (Just ast'), stack') -> Right (Result ast') : optimizeAst stack' xs inFunc
       (Right Nothing, _) -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
-  | otherwise = Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+  | otherwise = case evalAst stack (FunctionValue params ast (Just asts)) of
+      (Left ('S':'y':'m':'b':'o':'l':' ':'\'':xs'), _)
+        | inFunc -> Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+        | otherwise -> Left (Error ('S':'y':'m':'b':'o':'l':' ':'\'':xs') (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+      (Left err, _) -> Left (Error err (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
+      (Right (Just _), stack') -> Right (Result (FunctionValue params ast (Just asts))) : optimizeAst stack' xs inFunc
+      _ -> Right (Warning "This situation shouldn't happen" (FunctionValue params ast (Just asts))) : optimizeAst stack xs inFunc
 optimizeAst _ [] _ = []
 
 isUnoptimizable :: Ast -> Bool

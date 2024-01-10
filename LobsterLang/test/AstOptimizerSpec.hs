@@ -32,6 +32,8 @@ spec = do
     describe "List Ast optimization tests" $ do
         it "Empty list" $ do
             optimizeAst [] [List []] False `shouldBe` [Right (Result (List []))]
+        it "Optimizable list" $ do
+            optimizeAst [] [List [Call "+" [Value 1, Value 2], Value 5]] False `shouldBe` [Right (Result (List [Value 3, Value 5]))]
         it "Unoptimizable list" $ do
             optimizeAst [] [List [Value 5, Boolean True, Value 9, String "vzb"]] False `shouldBe` [Right (Result (List [Value 5, Boolean True, Value 9, String "vzb"]))]
         it "Unoptimizable list 2" $ do
@@ -114,6 +116,44 @@ spec = do
             optimizeAst [] [Cond (Boolean False) (Value 1) (Just (Value 8))] False `shouldBe` [Right (Warning "Condition is always false" (Value 8))]
         it "Optimize always false (no else)" $ do
             optimizeAst [] [Cond (Boolean False) (Value 1) Nothing] False `shouldBe` [Right (Warning "Condition is always false" (Cond (Boolean False) (Value 1) Nothing))]
+        it "Unoptimizable Cond" $ do
+            optimizeAst [Variable "a" (Boolean True) 0] [Cond (Call "&&" [Boolean True, Symbol "a" Nothing]) (Value 1) Nothing] False `shouldBe` [Right (Result (Cond (Call "&&" [Boolean True, Symbol "a" Nothing]) (Value 1) Nothing))]
+    describe "FunctionValue Ast optimization tests" $ do
+        -- without params
+        it "Optimize inner ast in FunctionValue error" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "$" [Define "a" (Call "+" [Boolean True, Value 1]), Call "+" [Symbol "a" Nothing, Value 1]]) Nothing] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [Boolean True, Value 1]))]
+        it "Optimize inner ast in FunctionValue" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Call "+" [Value 1, Value 1]]) Nothing] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) Nothing))]
+        it "Optimize inner ast in FunctionValue warning" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Cond (Boolean True) (Value 2) Nothing]) Nothing] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) Nothing))]
+        -- with params (inner)
+        it "Optimize inner ast in FunctionValue with params" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Call "+" [Value 1, Value 1]]) (Just [Value 2])] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Value 2])))]
+        it "Optimize inner ast in FunctionValue with params warning" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Cond (Boolean True) (Value 2) Nothing]) (Just [Value 2])] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Value 2])))]
+        it "Optimize inner ast in FunctionValue with params error" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Call "+" [Boolean True, Value 1]]) (Just [Value 2])] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [Boolean True, Value 1]))]
+        -- with params (params)
+        it "Empty params" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [])] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) Nothing))]
+        it "Unoptimizable params error" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Call "+" [Value 1, Boolean True]])] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (Call "+" [Value 1, Boolean True]))]
+        it "Optimizable params" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Call "+" [Value 1, Value 1]])] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Value 2])))]
+        it "Unoptimizable params" $ do
+            optimizeAst [] [FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Value 2])] False `shouldBe` [Right (Result (FunctionValue ["x"] (Call "+" [Symbol "x" Nothing, Value 2]) (Just [Value 2])))]
+        -- currying
+        it "Currying" $ do
+            optimizeAst [] [FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Value 2])] False `shouldBe` [Right (Result (FunctionValue ["b"] (Call "$" [Define "a" (Value 2), Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]]) Nothing))]
+        -- Check valaidity of func
+        it "Unoptimizable func with params" $ do
+            optimizeAst [] [FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Value 2, Value 3])] False `shouldBe` [Right (Result (FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Value 2, Value 3])))]
+        it "Unoptimizable func with params (symbol don't exist in func)" $ do
+            optimizeAst [] [FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Symbol "c" Nothing, Value 3])] True `shouldBe` [Right (Result (FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Symbol "c" Nothing, Value 3])))]
+        it "Unoptimizable func with params (symbol don't exist out of func)" $ do
+            optimizeAst [] [FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Symbol "c" Nothing, Value 3])] False `shouldBe` [Left (Error "Symbol 'c' doesn't exist in the current or global scope" (FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Symbol "c" Nothing, Value 3])))]
+        it "Unoptimizable func with params error" $ do
+            optimizeAst [] [FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Value 2, Boolean True])] False `shouldBe` [Left (Error "One or more parameters of binary operator '+' is invalid" (FunctionValue ["a", "b"] (Call "+" [Symbol "a" Nothing, Symbol "b" Nothing]) (Just [Value 2, Boolean True])))]
     describe "Advanced Ast optimization tests" $ do
         it "Call then symbol" $ do
             optimizeAst [Variable "a" (Value 5) 0] [Call "-" [Value 5, Value 8], Call "+" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Value (-3))), Right (Result (Call "+" [Symbol "a" Nothing, Value 8]))]
