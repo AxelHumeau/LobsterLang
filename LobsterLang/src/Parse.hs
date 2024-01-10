@@ -217,11 +217,9 @@ parseListElem parserA = Parser (parseFirst parserA)
         parseFirst :: Parser a -> Position -> String -> Either String ([a], String, Position)
         parseFirst parser pos s = case runParser parser pos s of
             Left _ -> Right ([], s, pos)
-            Right (res, s', pos') -> case runParser (parseChar ',') pos' s' of
-                Left _ -> Right ([res], s, pos)
-                Right _ -> case (parseOthers parser pos' s') of
-                    Left err -> Left err
-                    Right (res', s'', pos'') -> Right(res : res', s'', pos'')
+            Right (res, s', pos') -> case (parseOthers parser pos' s') of
+                Left err -> Left err
+                Right (res', s'', pos'') -> Right(res : res', s'', pos'')
         parseOthers :: Parser a -> Position -> String -> Either String ([a], String, Position)
         parseOthers parser pos s = case runParser (parseChar ',') pos s of
             Left _ -> Right ([], s, pos)
@@ -345,9 +343,3 @@ parseFunctionValue = Parser parseParams
         parseParams s pos = case runParser (parseList parseString) s pos of
             Left err -> Left err
             Right (res, s', pos') -> Right (AST.FunctionValue res (AST.Value 1) Nothing, s', pos')
-
-        -- defineFn pos s = AST.Define <$> (Parser res) (AST.Value <$> 1)
-        --     where
-        --         (res, s', pos') = parseString
-        -- -- parseFnValue :: AST.FunctionValue
-        -- -- parseFnValue = 
