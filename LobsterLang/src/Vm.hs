@@ -8,6 +8,11 @@
 module Vm (Operator(..),
            Value(..),
            Instruction(..),
+           Stack,
+           Inst,
+           Arg,
+           Func,
+           Env,
            makeOperation,
            exec) where
 
