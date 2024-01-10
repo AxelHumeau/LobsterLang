@@ -106,9 +106,9 @@ parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
         f :: Char -> Position -> String -> Either String (Char, String, Position)
-        f '\n' (row, col) (x:xs) = if '\n' == x then Right ('\n', xs, (row + 1, 0)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f char (row, col) (x:xs) = if char == x then Right (char, xs, (row, col + 1)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f _ (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f '\n' (row, col) (x:xs) = if '\n' == x then Right ('\n', xs, (row + 1, 0)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'")
+        f char (row, col) (x:xs) = if char == x then Right (char, xs, (row, col + 1)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'")
+        f _ (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'")
 
 -- | Parse with the first or the second parser
 -- Takes two parsers
@@ -244,7 +244,7 @@ parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
     where
         f :: String -> Position -> String -> Either String (Char, String, Position)
-        f [] (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f [] (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'")
         f (x:xs) pos s' = case parsed of
             Left _ -> runParser (parseAnyChar xs) pos s'
             _ -> parsed
