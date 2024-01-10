@@ -219,21 +219,21 @@ parseSymbol :: Parser AST.Ast
 parseSymbol = AST.String <$> parseElem parseString
 
 parseExpr :: Parser AST.Ast
-parseExpr = parseFuncOperator
+parseExpr = parseCombinatorOperator
 
-parseFuncOperator :: Parser AST.Ast
-parseFuncOperator = do res <- parseCondOperator
-                       res' <- optional (parseChar '$'
-                                            >>= \res' -> parseFuncOperator
+parseCombinatorOperator :: Parser AST.Ast
+parseCombinatorOperator = do res <- parseBoolOperator
+                             res' <- optional (parseChar '$'
+                                            >>= \res' -> parseCombinatorOperator
                                                 >>= \res'' -> return $ AST.Call [res'] [res, res''])
-                       return $ fromMaybe res res'
+                             return $ fromMaybe res res'
 
-parseCondOperator :: Parser AST.Ast
-parseCondOperator = do res <- parseCompOperator
+parseBoolOperator :: Parser AST.Ast
+parseBoolOperator = do res <- parseCompOperator
                        res' <- optional (parseAnyString "&&" <|>
                                          parseAnyString "||" <|>
                                          parseAnyString "^^"
-                                            >>= \res' -> parseCondOperator
+                                            >>= \res' -> parseBoolOperator
                                                 >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
 
@@ -309,7 +309,7 @@ parseListOperator = do res <- parseValue
 
 -- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser AST.Ast
-parseValue = AST.Value <$> parseElem parseInt <|> parseChar '(' *> parseExpr <* parseChar ')' <|> parseSymbol
+parseValue = AST.Value <$> parseElem parseInt <|> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <|> parseSymbol
 
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
