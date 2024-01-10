@@ -103,6 +103,15 @@ instance Monad Parser where
                 Right (res, s', pos') -> runParser (b res) pos' s'
         )
 
+errorParsing :: (Int, Int) -> String
+errorParsing (row, col) = "Error on parsing on '" ++ show row ++ "' '" ++ show col
+
+startCharacter :: String
+startCharacter = ['a'..'z'] ++ ['A'..'Z'] ++ "_"
+
+lobsterCharacter :: String
+lobsterCharacter = startCharacter ++ ['0'..'9']
+
 -- | Parse a character c
 -- Takes the character that need to be parsed
 -- Returns a data Parser that contain the character and the rest of the string
@@ -110,9 +119,13 @@ parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
         f :: Char -> Position -> String -> Either String (Char, String, Position)
-        f '\n' (row, col) (x:xs) = if '\n' == x then Right ('\n', xs, (row + 1, 0)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f char (row, col) (x:xs) = if char == x then Right (char, xs, (row, col + 1)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f _ (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f '\n' (row, col) (x:xs)
+            | x == '\n' = Right ('\n', xs, (row + 1, 0))
+            | otherwise = Left (errorParsing (row, col))
+        f char (row, col) (x:xs)
+            | x == char = Right (char, xs, (row, col + 1))
+            | otherwise = Left (errorParsing (row, col))
+        f _ (row, col) _ = Left (errorParsing (row, col))
 
 -- | Parse with the first or the second parser
 -- Takes two parsers
@@ -208,9 +221,9 @@ parseString :: Parser String
 parseString = parseWhiteSpace *> Parser f <* parseWhiteSpace
     where
         f :: Position -> String -> Either String (String, String, Position)
-        f pos s = case runParser (parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z'] ++ "_"))) pos s of
+        f pos s = case runParser (parseSome (parseAnyChar startCharacter)) pos s of
             Left err -> Left err
-            Right (res, s', pos') -> case runParser (parseMany (parseAnyChar (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_"))) pos' s' of
+            Right (res, s', pos') -> case runParser (parseMany (parseAnyChar lobsterCharacter)) pos' s' of
                 Left _ -> Right (res ++ res, s', pos')
                 Right (res', s'', pos'') -> Right (res ++ res', s'', pos'')
 
@@ -295,7 +308,7 @@ parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
     where
         f :: String -> Position -> String -> Either String (Char, String, Position)
-        f [] (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f [] (row, col) _ = Left (errorParsing (row, col))
         f (x:xs) pos s' = case parsed of
             Left _ -> runParser (parseAnyChar xs) pos s'
             _ -> parsed
