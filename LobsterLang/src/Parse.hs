@@ -259,6 +259,19 @@ parseCompOperator = do res <- parseSum
                                                 >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
 
+-- parseSub :: Parser AST.Ast
+-- parseSub = parseWhiteSpace *> Parser f <* parseWhiteSpace
+--     where
+--         f :: Position -> String -> Either String (AST.Ast, String, Position)
+--         f pos s = case runParser parseSub pos s of
+--             Left err -> Left err
+--             Right (res, s', pos') -> case runParser (parseAnyChar "-") pos' s' of
+--                 Left _ -> Right (res, s', pos')
+--                 Right (res', s'', pos'') -> case runParser parseSum pos'' s'' of
+--                     Left err'' -> Left err''
+--                     Right (res'', s''', pos''') -> Right (AST.Call [res'] (res : [res'']), s''', pos''')
+
+
 parseSum :: Parser AST.Ast
 -- parseSum = parseWhiteSpace *> Parser f <* parseWhiteSpace
 --     where
@@ -306,7 +319,7 @@ parseListOperator = do res <- parseValue
 
 -- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser AST.Ast
-parseValue = AST.Value <$> parseElem parseInt <|> parseChar '(' *> parseExpr <* parseChar ')'
+parseValue = AST.Value <$> parseElem parseInt <|> parseChar '(' *> parseExpr <* parseChar ')' <|> parseSymbol
 
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
