@@ -140,6 +140,8 @@ spec = do
             evalAst [Variable "foo" (AST.Value 1) 0, ScopeBegin 0] (AST.Symbol "foo" Nothing) `shouldBe` (Right (Just (AST.Value 1)), [Variable "foo" (AST.Value 1) 0, ScopeBegin 0])
         it "Check variable usage 2" $ do
             evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0] (AST.Symbol "bar" Nothing) `shouldBe` (Right (Just (AST.Value 6)), [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
+        it "Check invalid variable usage" $ do
+            evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0] (AST.Symbol "bar" (Just [Value 1])) `shouldBe` (Left "Symbol 'bar' isn't a function", [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
         it "Check invalid function" $ do
             evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [AST.Value 5])) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0])
         it "Check basic function definition" $ do

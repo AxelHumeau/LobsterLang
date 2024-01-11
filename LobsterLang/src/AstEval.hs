@@ -50,7 +50,9 @@ evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s asts) = case getVarInScope stack s of
   Nothing -> (Left ("Symbol '" ++ s ++ "' doesn't exist in the current or global scope"), stack)
   Just (FunctionValue params ast Nothing) -> evalAst stack (FunctionValue params ast asts)
-  Just value -> evalAst stack value
+  Just value -> case asts of
+    Nothing -> evalAst stack value
+    _ -> (Left ("Symbol '" ++ s ++ "' isn't a function"), stack)
 evalAst stack (AST.List l) = case evalSubParams stack l of
   (Left err) -> (Left err, stack)
   (Right (Just l')) -> (Right (Just (AST.List l')), stack)
@@ -115,10 +117,10 @@ evalAst stack (FunctionValue params ast (Just asts))
         stack
       )
   | otherwise = case evalAst stack (head asts) of
-    (Left err, _) -> (Left err, stack)
-    (Right Nothing, _) -> (Left "No evaluation in one or more parameters of expression", stack)
-    (Right (Just ast'), _) ->
-      evalAst stack (FunctionValue (tail params) (Call "$" [Define (head params) ast', ast]) (Just (tail asts)))
+      (Left err, _) -> (Left err, stack)
+      (Right Nothing, _) -> (Left "No evaluation in one or more parameters of expression", stack)
+      (Right (Just ast'), _) ->
+        evalAst stack (FunctionValue (tail params) (Call "$" [Define (head params) ast', ast]) (Just (tail asts)))
 evalAst stack (Cond (AST.Boolean b) a1 (Just a2))
   | b = evalAst stack a1
   | otherwise = evalAst stack a2
