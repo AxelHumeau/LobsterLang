@@ -63,9 +63,9 @@ spec = do
         it "Check invalid value binary operation (wrong type 2)" $ do
             evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [])
         it "Check invalid value binary operation (not enough ast parameters)" $ do
-            evalBiValOp (+) [] (Call "+" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '+'", [])
+            evalBiValOp (+) [] (Call "+" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '+'", [])
         it "Check invalid value binary operation (too much ast parameters)" $ do
-            evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '+'", [])
+            evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '+'", [])
     describe "Value comparison evaluation tests" $ do
         -- Value comparison operators
         it "Check valid operation ==" $ do
@@ -85,9 +85,9 @@ spec = do
         it "Check invalid value comparison binary operation (wrong type 2)" $ do
             evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '==' is invalid", [])
         it "Check invalid value comparison binary operation (not enough ast parameters)" $ do
-            evalBiCompValOp (==) [] (Call "==" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '=='", [])
+            evalBiCompValOp (==) [] (Call "==" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '=='", [])
         it "Check invalid value comparison binary operation (too much ast parameters)" $ do
-            evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '=='", [])
+            evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '=='", [])
     describe "Boolean operators evaluation tests" $ do
         -- Boolean operators
         it "Check valid operation &&" $ do
@@ -123,9 +123,9 @@ spec = do
         it "Check invalid value comparison binary operation (wrong type 2)" $ do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '&&' is invalid", [])
         it "Check invalid value comparison binary operation (not enough ast parameters)" $ do
-            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '&&'", [])
+            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '&&'", [])
         it "Check invalid value comparison binary operation (too much ast parameters)" $ do
-            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '&&'", [])
+            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '&&'", [])
     describe "Define and function evaluation tests" $ do
         -- Check Define
         it "Check unknown variable" $ do

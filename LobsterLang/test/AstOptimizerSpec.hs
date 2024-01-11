@@ -46,7 +46,7 @@ spec = do
         it "Optimizable Define" $ do
             optimizeAst [] [Define "a" (Call "+" [Value 5, Value 5])] False `shouldBe` [Right (Result (Define "a" (Value 10)))]
         it "Error Define" $ do
-            optimizeAst [] [Define "a" (Call "+" [Value 5])] False `shouldBe` [Left (Error "Not enough parameter for binary operator '+'" (Call "+" [Value 5]))]
+            optimizeAst [] [Define "a" (Call "+" [Value 5])] False `shouldBe` [Left (Error "Not enough parameters for binary operator '+'" (Call "+" [Value 5]))]
         it "Error Define 2" $ do
             optimizeAst [] [Define "a" (Define "b" (Value 2))] False `shouldBe` [Left (Error "Cannot define with no value" (Define "a" (Define "b" (Value 2))))]
         it "Error Define 3" $ do
