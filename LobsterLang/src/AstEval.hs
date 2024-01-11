@@ -45,6 +45,9 @@ tooMuchParams s = "Too much parameters for " ++ s
 notEnoughParams :: String -> String
 notEnoughParams s = "Not enough parameters for " ++ s
 
+recursionLimit :: Int
+recursionLimit = 2000
+
 -- | Evaluate a 'Ast'.
 -- Takes a stack representing variables and the Ast to evaluate.
 -- Returns a tuple containing either the resulting Ast
@@ -52,6 +55,10 @@ notEnoughParams s = "Not enough parameters for " ++ s
 -- or a 'String' containing the error message in case of error
 -- and the stack after evaluation.
 evalAst :: [ScopeMb] -> Ast -> (Either String (Maybe Ast), [ScopeMb])
+evalAst (ScopeBegin depth:xs) _
+  | depth > recursionLimit = (Left "Recursion limit reached", ScopeBegin depth:xs)
+evalAst (Variable s ast depth:xs) _
+  | depth > recursionLimit = (Left "Recursion limit reached", Variable s ast depth:xs)
 evalAst stack (Define s v) = case defineVar defineFunc stack s v of
   Left err -> (Left err, stack)
   Right stack' -> (Right Nothing, stack')
