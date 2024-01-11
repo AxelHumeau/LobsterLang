@@ -285,6 +285,7 @@ parseValue :: Parser AST.Ast
 parseValue = parseWhiteSpace *> (
                                  parseWhiteSpace *> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <* parseWhiteSpace
                                  <|> AST.Value <$> parseElem parseInt
+                                 <|> parseBool
                                 )
 
 -- | Parse a list of element
@@ -377,8 +378,8 @@ parseAst = parseWhiteSpace *>
         (
             parseDefineValue
         <|> parseExpr
-        <|> parseUnaryOperation
         <|> parseBool
+        <|> parseUnaryOperation
         <|> parseAstString
         <|> parseValue
         <|> parseAstString
