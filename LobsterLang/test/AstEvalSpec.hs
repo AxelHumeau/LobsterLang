@@ -108,10 +108,16 @@ spec = do
             evalAst [] (Call "!" [AST.Boolean False]) `shouldBe` (Right (Just (AST.Boolean True)), [])
         it "Check valid operation ! (not) 2" $ do
             evalAst [] (Call "!" [AST.Boolean True]) `shouldBe` (Right (Just (AST.Boolean False)), [])
+        it "Check valid operation ! (not) with symbol" $ do
+            evalAst [Variable "a" (Boolean True) 0] (Call "!" [AST.Symbol "a" Nothing]) `shouldBe` (Right (Just (AST.Boolean False)), [Variable "a" (Boolean True) 0])
+        it "Check valid operation ! (not) with eval" $ do
+            evalAst [] (Call "!" [Call "&&" [AST.Boolean True, AST.Boolean True]]) `shouldBe` (Right (Just (AST.Boolean False)), [])
         it "Check invalid operation ! (not)" $ do
             evalAst [] (Call "!" [AST.Boolean True, AST.Boolean False]) `shouldBe` (Left "Invalid number of parameter for unary operator '!'", [])
         it "Check invalid operation ! (not) 2" $ do
             evalAst [] (Call "!" [AST.Value 5]) `shouldBe` (Left "Parameter of unary operator '!' isn't a boolean", [])
+        it "Check invalid operation ! (not) with symbol" $ do
+            evalAst [Variable "a" (Value 8) 0] (Call "!" [Symbol "a" Nothing]) `shouldBe` (Left "Parameter of unary operator '!' isn't a boolean", [Variable "a" (Value 8) 0])
         it "Check invalid value comparison binary operation (wrong type)" $ do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Boolean True, AST.Value 8]) `shouldBe` (Left "One or more parameters of binary operator '&&' is invalid", [])
         it "Check invalid value comparison binary operation (wrong type 2)" $ do

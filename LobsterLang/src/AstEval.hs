@@ -74,8 +74,11 @@ evalAst stack (Call "&&" astList) = evalBiBoolOp (&&) stack (Call "&&" astList)
 evalAst stack (Call "||" astList) = evalBiBoolOp (||) stack (Call "||" astList)
 evalAst stack (Call "^^" astList) = evalBiBoolOp (\a b -> (a || b) && not (a && b)) stack (Call "||" astList)
 evalAst stack (Call "!" [AST.Boolean b]) = (Right (Just (AST.Boolean (not b))), stack)
--- TODO: add ! support for evaluation of sub parameters
-evalAst stack (Call "!" [_]) = (Left "Parameter of unary operator '!' isn't a boolean", stack)
+evalAst stack (Call "!" [ast]) = case evalAst stack ast of
+  (Left err, _) -> (Left err, stack)
+  (Right (Just (Boolean b)), _) -> (Right (Just (AST.Boolean (not b))), stack)
+  (Right Nothing, _) -> (Left "No evaluation in parameter of unary operator '!'", stack)
+  (Right _, _) -> (Left "Parameter of unary operator '!' isn't a boolean", stack)
 evalAst stack (Call "!" _) = (Left "Invalid number of parameter for unary operator '!'", stack)
 evalAst stack (Call "@" [ast]) = case astToString stack ast of
   Left err -> (Left err, stack)
