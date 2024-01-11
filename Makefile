@@ -29,7 +29,7 @@ fclean: clean
 re: fclean all
 
 tests_run:
-	cd $(PKG_NAME) && stack test --coverage
+	cd $(PKG_NAME) && stack test
 
 cov:
 	cd $(PKG_NAME) && stack test --coverage 2> >(tail -n 1 > $(COV_PATH_FILE))
