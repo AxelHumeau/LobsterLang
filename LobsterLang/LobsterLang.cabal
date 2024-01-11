@@ -28,6 +28,7 @@ library
       AST
       AstEval
       AstOptimizer
+      Compiler
       Parse
       Scope
       SExpr
@@ -42,6 +43,9 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , binary
+    , bytestring
+    , utf8-string
   default-language: Haskell2010
 
 executable LobsterLang-exe
@@ -56,6 +60,9 @@ executable LobsterLang-exe
   build-depends:
       LobsterLang
     , base >=4.7 && <5
+    , binary
+    , bytestring
+    , utf8-string
   default-language: Haskell2010
 
 test-suite LobsterLang-test
@@ -64,6 +71,7 @@ test-suite LobsterLang-test
   other-modules:
       AstEvalSpec
       AstOptimizerSpec
+      CompilerSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:
@@ -74,5 +82,8 @@ test-suite LobsterLang-test
   build-depends:
       LobsterLang
     , base >=4.7 && <5
+    , binary
+    , bytestring
     , hspec
+    , utf8-string
   default-language: Haskell2010
