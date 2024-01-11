@@ -23,24 +23,23 @@ module Parse (
     parseDigit,
     parseBool,
     parseAst,
-    parseSymbol,
     parseElem,
     parseValue,
     parseLobster,
     parseAnyString,
-    parseSpace,
-    parseLine,
-    interpretateLisp,
     parseDefineValue,
     parseUnaryOperation,
     parseProduct,
     parseSum,
-    parseExpr
+    parseExpr,
+    parseTrue,
+    parseFalse,
+    parseAstString,
+    parseWhiteSpace,
+    errorParsing
 ) where
 
-import qualified AstEval
 import qualified AST
-import qualified Scope
 import Control.Applicative
 import Data.Maybe
 
@@ -104,7 +103,7 @@ instance Monad Parser where
         )
 
 errorParsing :: (Int, Int) -> String
-errorParsing (row, col) = "Error on parsing on '" ++ show row ++ "' '" ++ show col
+errorParsing (row, col) = "Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'"
 
 startCharacter :: String
 startCharacter = ['a'..'z'] ++ ['A'..'Z'] ++ "_"
@@ -201,20 +200,13 @@ parseInt = Parser f
         f pos ('-':xs) = runParser ((\x -> -x) <$> parseUInt) pos xs
         f pos s = runParser parseUInt pos s
 
--- | Return a data Parser that parse multiple space
-parseSpace :: Parser [Char]
-parseSpace = parseMany (parseChar ' ' <|> parseChar '\n')
-
-parseLine :: Parser [Char]
-parseLine = parseMany (parseChar '\n')
-
 parseWhiteSpace :: Parser [Char]
-parseWhiteSpace = parseSpace <|> parseLine
+parseWhiteSpace = parseMany (parseAnyChar "\n\t ")
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
 parseElem :: Parser a -> Parser a
-parseElem parser = parseAndWith (\x _ -> x) parser parseSpace <|> parser
+parseElem parser = parseAndWith (\x _ -> x) parser parseWhiteSpace <|> parser
 
 -- | Return a data Parser that parse a String
 parseString :: Parser String
@@ -224,19 +216,22 @@ parseString = parseWhiteSpace *> Parser f <* parseWhiteSpace
         f pos s = case runParser (parseSome (parseAnyChar startCharacter)) pos s of
             Left err -> Left err
             Right (res, s', pos') -> case runParser (parseMany (parseAnyChar lobsterCharacter)) pos' s' of
-                Left _ -> Right (res ++ res, s', pos')
+                Left _ -> Right (res, s', pos')
                 Right (res', s'', pos'') -> Right (res ++ res', s'', pos'')
 
 -- | Return a data Parser that parse a String as a Symbol
-parseSymbol :: Parser AST.Ast
-parseSymbol = AST.String <$> parseElem parseString
+parseAstString :: Parser AST.Ast
+parseAstString = AST.String <$> (parseChar '"' *> parseElem parseString <* parseChar '"')
+
+-- parseSymbol :: Parser AST.Ast
+-- parseSymbol = AST.Symbol <$> parseElem parseString
 
 parseExpr :: Parser AST.Ast
 parseExpr = parseCombinatorOperator
 
 parseCombinatorOperator :: Parser AST.Ast
 parseCombinatorOperator = do res <- parseBoolOperator
-                             res' <- optional (parseChar '$'
+                             res' <- optional (parseWhiteSpace *> parseChar '$'
                                             >>= \res' -> parseCombinatorOperator
                                                 >>= \res'' -> return $ AST.Call [res'] [res, res''])
                              return $ fromMaybe res res'
@@ -252,35 +247,35 @@ parseBoolOperator = do res <- parseCompOperator
 
 parseCompOperator :: Parser AST.Ast
 parseCompOperator = do res <- parseSum
-                       res' <- optional (parseAnyString "==" <|>
-                                         parseAnyString ">=" <|>
-                                         parseAnyString "!=" <|>
-                                         parseAnyString "<=" <|>
-                                         parseAnyString ">" <|>
-                                         parseAnyString "<"
+                       res' <- optional (parseWhiteSpace *> parseAnyString "==" <|>
+                                         parseWhiteSpace *> parseAnyString ">=" <|>
+                                         parseWhiteSpace *> parseAnyString "!=" <|>
+                                         parseWhiteSpace *> parseAnyString "<=" <|>
+                                         parseWhiteSpace *> parseAnyString ">" <|>
+                                         parseWhiteSpace *> parseAnyString "<"
                                             >>= \res' -> parseCompOperator
                                                 >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
 
 parseSum :: Parser AST.Ast
 parseSum = do res <- parseProduct
-              res' <- optional (parseAnyChar "+-"
+              res' <- optional (parseWhiteSpace *> parseAnyChar "+-"
                                     >>= \res' -> parseSum
                                         >>= \res'' -> return $ AST.Call [res'] [res, res''])
               return $ fromMaybe res res'
 
 parseProduct :: Parser AST.Ast
 parseProduct = do res <- parseListOperator
-                  res' <- optional (parseAnyChar "*/"
+                  res' <- optional (parseWhiteSpace *> parseAnyChar "*/%"
                                     >>= \res' -> parseProduct
                                         >>= \res'' -> return $ AST.Call [res'] [res, res''])
                   return $ fromMaybe res res'
 
 parseListOperator :: Parser AST.Ast
 parseListOperator = do res <- parseValue
-                       res' <- optional (parseAnyString "--" <|>
-                                         parseAnyString "++" <|>
-                                         parseAnyString "!!"
+                       res' <- optional (parseWhiteSpace *> parseAnyString "--" <|>
+                                         parseWhiteSpace *> parseAnyString "++" <|>
+                                         parseWhiteSpace *> parseAnyString "!!"
                                             >>= \res' -> parseListOperator
                                                 >>= \res'' -> return $ AST.Call res' [res, res''])
                        return $ fromMaybe res res'
@@ -288,9 +283,8 @@ parseListOperator = do res <- parseValue
 -- | Return a data Parser that parse a Int as a Value
 parseValue :: Parser AST.Ast
 parseValue = parseWhiteSpace *> (
-                                 parseAnyString "(|" *> parseExpr <* parseAnyString "|)"
+                                 parseWhiteSpace *> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <* parseWhiteSpace
                                  <|> AST.Value <$> parseElem parseInt
-                                 <|>parseSymbol
                                 )
 
 -- | Parse a list of element
@@ -298,9 +292,9 @@ parseValue = parseWhiteSpace *> (
 parseList :: Parser a -> Parser [a]
 parseList parser = parseStart *> parseListValue <* parseEnd
     where
-        parseEnd = parseChar ')' <* parseSpace
-        parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
-        parseStart = parseSpace *> parseChar '('
+        parseEnd = parseChar ')' <* parseWhiteSpace
+        parseListValue = parseWhiteSpace *> parseMany (parseElem parser) <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseChar '('
 
 -- | Parse any character from a String
 -- Return a Parser that parse every character from a String
@@ -330,7 +324,7 @@ parseAnyString s = Parser (f s s)
 
 -- | Return a Parser that parse a Bool (#f or #t)
 parseBool :: Parser AST.Ast
-parseBool = AST.Boolean <$> (parseTrue <|> parseFalse)
+parseBool = AST.Boolean <$> (parseTrue <|> parseFalse) <* parseWhiteSpace
 
 -- | Return a PArser that parse a True (in lisp -> #t)
 parseTrue :: Parser Bool
@@ -379,22 +373,17 @@ parseUnaryOperation = Parser f
 
 -- | Return a Parser that parse a SExpr
 parseAst :: Parser AST.Ast
-parseAst =
-        parseWhiteSpace *> parseDefineValue
-        <|> parseWhiteSpace *> parseExpr
-        <|> parseWhiteSpace *> parseUnaryOperation
-        <|> parseWhiteSpace *> parseBool
-        <|> parseWhiteSpace *> parseSymbol
-        <|> parseWhiteSpace *> parseValue
+parseAst = parseWhiteSpace *>
+        (
+            parseDefineValue
+        <|> parseExpr
+        <|> parseUnaryOperation
+        <|> parseBool
+        <|> parseAstString
+        <|> parseValue
+        <|> parseAstString
+        )
 
 
 parseLobster :: Parser [AST.Ast]
-parseLobster = parseSome parseAst
-
--- | Return a Result that contain the evaluation of our Lisp String
--- Takes as parameter the string that need to be evaluated and the Stack (Environment)
-interpretateLisp :: AST.Ast -> [Scope.ScopeMb] -> Either String (Maybe AST.Ast, [Scope.ScopeMb])
-interpretateLisp value stack = case AstEval.evalAst stack value of
-        (Left err, _) -> Left err
-        (Right res', stack') -> Right (res', stack')
-
+parseLobster = parseSome (parseWhiteSpace *> parseAst)

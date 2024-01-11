@@ -12,9 +12,17 @@ import Scope
 import System.IO (isEOF)
 import System.Exit (exitWith, ExitCode (ExitFailure))
 import System.Environment (getArgs)
+import qualified AstEval
 import Control.Exception
 import qualified AST
 -- import Compiler
+
+-- | Return a Result that contain the evaluation of our Lisp String
+-- Takes as parameter the string that need to be evaluated and the Stack (Environment)
+interpretateLisp :: AST.Ast -> [Scope.ScopeMb] -> Either String (Maybe AST.Ast, [Scope.ScopeMb])
+interpretateLisp value stack = case AstEval.evalAst stack value of
+        (Left err, _) -> Left err
+        (Right res', stack') -> Right (res', stack')
 
 -- | Infinite loop until EOF from the user
 inputLoop :: [Scope.ScopeMb] -> IO ()
@@ -22,7 +30,8 @@ inputLoop :: [Scope.ScopeMb] -> IO ()
 inputLoop stack = isEOF >>= \end -> if end then print "End of Interpretation GLaDOS" else
     getLine >>= \line -> case runParser parseLobster (0, 0) line of
         Left err -> putStrLn ("\ESC[34m\ESC[1mThe lobster is angry: " ++ err ++ "\ESC[0m") >> inputLoop stack
-        Right (res, _, _) -> interpretateInfo res stack
+        Right (res, [], _) -> interpretateInfo res stack
+        Right (_, _, pos) -> putStrLn ("\ESC[34m\ESC[1mThe lobster is angry: " ++ errorParsing pos ++ "\ESC[0m") >> inputLoop stack
 
 interpretateInfo :: [AST.Ast] -> [Scope.ScopeMb] -> IO ()
 interpretateInfo [] stack = inputLoop stack
@@ -43,7 +52,7 @@ compileInfo (x:xs) stack = case interpretateLisp x stack of
 compileFile :: String -> IO ()
 compileFile s = case runParser parseLobster (0, 0) s of
         Left err -> print err >> exitWith (ExitFailure 84)
-        Right (res, [], _) -> compileInfo res []
+        Right (res, [], _) -> print res >> compileInfo res []
         Right (_, _, (row, col)) -> print ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
         -- (Right (Just res), stack') -> let instructions = (astToInstructions (AST.Cond (Boolean True) (Value 1) (Just (AST.Call "CallHere" [(Value 0)])))) in showInstructions instructions >> writeCompiledInstructionsToFile "output" (compileInstructions instructions)
 

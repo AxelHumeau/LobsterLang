@@ -6,8 +6,7 @@
 -}
 
 module AstEval
-  ( sexprToAst,
-    evalAst,
+  ( evalAst,
     evalBiValOp,
     evalBiBoolOp,
     evalBiCompValOp,
@@ -16,21 +15,7 @@ where
 
 import AST
 import Data.Bifunctor
-import SExpr
 import Scope
-
--- | Convert a S-expression into an 'Ast',
--- return Nothing if the expression is invalid or Just the Ast
-sexprToAst :: SExpr -> Maybe Ast
-sexprToAst (SExpr.List [SExpr.Symbol "define", SExpr.Symbol s, t]) =
-  Define s <$> sexprToAst t
-sexprToAst (SExpr.List (SExpr.Symbol f : xs)) =
-  Call f <$> mapM sexprToAst xs
-sexprToAst (SExpr.List _) = Nothing
-sexprToAst (SExpr.Value i) = Just (AST.Value i)
-sexprToAst (SExpr.Symbol "true") = Just (Boolean True)
-sexprToAst (SExpr.Symbol "false") = Just (Boolean False)
-sexprToAst (SExpr.Symbol s) = Just (AST.Symbol s Nothing)
 
 -- | Evaluate a 'Ast'.
 -- Takes a stack representing variables and the Ast to evaluate.
