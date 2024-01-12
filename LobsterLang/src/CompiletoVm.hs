@@ -42,7 +42,17 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         Compiler.JumpIfFalse _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
             Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.JumpIfFalse (fromIntegral (val :: Int32) :: Int)])
-        Compiler.Def _ _ _ -> convert remainingfile (env, arg, inst)
+        -- Compiler.Def _ _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+        --     Left _ -> return ([], [], [])
+        --     Right (remfile, _, val) -> convert remf (env ++ [(symbol,  value)], arg, inst)
+        --         where
+        --             symbol = (fst (getString (fromIntegral (val :: Int32) :: Int) remfile []))
+        --             value = case (decodeOrFail (snd (getString (fromIntegral (val :: Int32) :: Int) remfile [])) :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32))
+        --                 Left _ -> (IntVal 0)
+        --                 Right (rmf, _, val) -> fst getValue rmf -- recupéré la value du symbole
+        --             remf = case (decodeOrFail (snd (getString (fromIntegral (val :: Int32) :: Int) remfile [])) :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32))
+        --                 Left _ -> remfile
+        --                 Right (rmf, _, val) -> (snd (getValue)) -- recupéré la ByteString restante
         Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])

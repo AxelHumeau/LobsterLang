@@ -24,7 +24,7 @@ data Value = IntVal Int
            | BoolVal Bool
            | CharVal Char
            | StringVal String
-        --    | ListVal [Value]
+           | ListVal [Value]
            | Op Operator
            | Function Func
            deriving (Show, Eq, Ord)
