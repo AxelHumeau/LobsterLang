@@ -343,3 +343,27 @@ parseFunctionValue = Parser parseParams
         parseParams s pos = case runParser (parseList parseString) s pos of
             Left err -> Left err
             Right (res, s', pos') -> Right (AST.FunctionValue res (AST.Value 1) Nothing, s', pos')
+
+-- parseBracket :: Parser AST.Ast
+-- parseBracket = parseStart *> parseLobster <* parseEnd
+--     where
+--         parseEnd = parseAnyChar '}' <* parseSpace <* parseLine
+--         parseStart = parseSpace *> parseAnyChar '{'
+
+parseCond :: Parser AST.Ast
+parseCond = parseAnyString "if" *> Parser p
+    where
+        parseIf :: Position -> String -> Either String (AST.Ast, String, Position)
+        parseIf pos s = case runParser parseExpression pos s of
+            Left err -> Left err
+            Right (res, s', pos') -> case parseLobster pos' s' of
+                Left err -> Left err
+                Right (res', s'', pos'') -> case runParser parseElse pos'' s'' of
+                    Left err -> Left err
+                    Right (res'', s''', pos''') -> Right ((AST.Cond res res' res''), s''', pos''')
+        parseElse :: Position -> String -> Either String ((Maybe AST.Ast), String, Position)
+        parseElse pos s = case runParser (parseAnyString "else") pos s of
+            Left _ -> Right (Nothing, s, pos)
+            Right (_, s', pos') -> case runParser parseBracket of
+                Left err -> Left err
+                Right (res, s'', pos') -> Right ((Just res), s'', pos'')
