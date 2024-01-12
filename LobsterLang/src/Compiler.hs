@@ -27,10 +27,13 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Binary
 import Data.Binary.Put
 
-data CompileConstants = MagicNumber deriving (Show, Eq)
+data CompileConstants = Null
+  | MagicNumber deriving (Show, Eq)
 instance Enum CompileConstants where
   fromEnum MagicNumber = 763
+  fromEnum Null = 0
   toEnum 763 = MagicNumber
+  toEnum _ = Null
 
 data Instruction =
     NoOp
@@ -102,6 +105,7 @@ instance Enum Instruction where
   fromEnum Mul = 52
   fromEnum Div = 53
   fromEnum Mod = 54
+  fromEnum XorB = 55
   -- Comparison Operators [60 - 70]
   fromEnum Eq = 60
   fromEnum Less = 61
@@ -113,7 +117,12 @@ instance Enum Instruction where
   fromEnum Or = 71
   fromEnum Not = 72
   -- Unary Operators [80 - 90]
-  fromEnum Neg = 80
+  fromEnum ToStr = 80
+  fromEnum Neg = 81
+  -- Built-in Functions [100 - ...]
+  fromEnum Apnd = 100
+  fromEnum RemAllOcc = 101
+  fromEnum Get = 102
 
   toEnum 0 = NoOp
   toEnum 10 = PushI 0
@@ -133,6 +142,7 @@ instance Enum Instruction where
   toEnum 52 = Mul
   toEnum 53 = Div
   toEnum 54 = Mod
+  toEnum 55 = XorB
   toEnum 60 = Eq
   toEnum 61 = Less
   toEnum 62 = LessEq
@@ -141,7 +151,11 @@ instance Enum Instruction where
   toEnum 70 = And
   toEnum 71 = Or
   toEnum 72 = Not
-  toEnum 80 = Neg
+  toEnum 80 = ToStr
+  toEnum 81 = Neg
+  toEnum 100 = Apnd
+  toEnum 101 = RemAllOcc
+  toEnum 102 = Get
   toEnum _ = NoOp
 
 astToInstructions :: Ast -> [Instruction]
@@ -184,7 +198,7 @@ astToInstructions (AST.Call "||" args) =
   concatMap astToInstructions args ++ [Or]
 astToInstructions (AST.Call "!" args) =
   concatMap astToInstructions args ++ [Not]
-astToInstructions (AST.Call _ args) =
+astToInstructions (AST.Call _ _) =
   [NoOp]
 astToInstructions (Define symbolName value) =
   let symbolValue = astToInstructions value
