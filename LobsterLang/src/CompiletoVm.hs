@@ -5,7 +5,7 @@
 -- CompiletoVm
 -}
 
-module CompiletoVm (converte, makeConverte, getString) where
+module CompiletoVm (convert, makeConvert, getString) where
 
 import Data.Binary
 import Data.Binary.Get
@@ -14,56 +14,52 @@ import GHC.Int
 import Vm
 import Compiler
 
-makeConverte :: String -> IO (Env, Arg, Inst)
-makeConverte path = BIN.readFile path >>= \filepath -> converte filepath ([], [], [])
+makeConvert :: String -> IO (Env, Arg, Inst)
+makeConvert path = BIN.readFile path >>= \filepath -> convert filepath ([], [], [])
 
-converte :: BIN.ByteString -> (Env, Arg, Inst) -> IO (Env, Arg, Inst)
-converte file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
+convert :: BIN.ByteString -> (Env, Arg, Inst) -> IO (Env, Arg, Inst)
+convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
     Left _ -> return (env, arg, inst)
     Right (remainingfile, _, opcode) -> case toEnum (fromIntegral opcode) of
-        NoOp -> converte remainingfile (env, arg, inst)
+        NoOp -> convert remainingfile (env, arg, inst)
         PushI _-> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
-            Right (remfile, _, val) -> converte remfile (env, arg, inst ++ [Push (IntVal (fromIntegral (val :: Int32) :: Int))])
+            Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Push (IntVal (fromIntegral (val :: Int32) :: Int))])
         PushB _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
             Left _ -> return ([], [], [])
-            Right (remfile, _, 1) -> converte remfile (env, arg, inst ++ [Push (BoolVal True)])
-            Right (remfile, _, 0) -> converte remfile (env, arg, inst ++ [Push (BoolVal False)])
-            Right (remfile, _, _) -> converte remfile (env, arg, inst)
-        PushS _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Right (remfile, _, 1) -> convert remfile (env, arg, inst ++ [Push (BoolVal True)])
+            Right (remfile, _, 0) -> convert remfile (env, arg, inst ++ [Push (BoolVal False)])
+            Right (remfile, _, _) -> convert remfile (env, arg, inst)
+        PushStr _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
-            Right (remfile, _, byteToRead) -> converte (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (env, arg, inst ++ [Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
+            Right (remfile, _, byteToRead) -> convert (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (env, arg, inst ++ [Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
         Compiler.Jump _-> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
-            Right (remfile, _, val) -> converte remfile (env, arg, inst ++ [Vm.Jump (fromIntegral (val :: Int32) :: Int)])
+            Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.Jump (fromIntegral (val :: Int32) :: Int)])
         Compiler.JumpIfFalse _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
-            Right (remfile, _, val) -> converte remfile (env, arg, inst ++ [Vm.JumpIfFalse (fromIntegral (val :: Int32) :: Int)])
-        -- Right (remainingfile, _, 40) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO: funcion ?
+            Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.JumpIfFalse (fromIntegral (val :: Int32) :: Int)])
+        -- Compiler.Def -> -- TODO:
         -- Right (remainingfile, _, 41) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
         --     Left _ -> return ([], [], [])
         --     Right (remfile, _, val) -> -- TODO: idk
-        Compiler.Call -> converte remainingfile (env, arg, inst ++ [Vm.Call])
-        Compiler.Ret -> converte remainingfile (env, arg, inst ++ [Vm.Ret])
-        Compiler.Add ->  converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
-        Compiler.Sub -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Sub)])
-        Compiler.Mul -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mul)])
-        Compiler.Div -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Div)])
-        Compiler.Mod -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mod)])
-        Compiler.Eq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Eq)])
-        Compiler.Less -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Less)])
-        Compiler.LessEq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.LessEq)])
-        Compiler.Great -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Great)])
-        Compiler.GreatEq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.GreatEq)])
-        Compiler.And -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.And)])
-        Compiler.Or ->converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Or)])
-        Compiler.Not -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Not)])
-        -- Compiler.Neg -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- Maybe:
-    Right (remainingfile, _, _) -> converte remainingfile (env, arg, inst)
+        Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
+        Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
+        Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
+        Compiler.Sub -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Sub)])
+        Compiler.Mul -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mul)])
+        Compiler.Div -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Div)])
+        Compiler.Mod -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mod)])
+        Compiler.Eq -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Eq)])
+        Compiler.Less -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Less)])
+        Compiler.LessEq -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.LessEq)])
+        Compiler.Great -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Great)])
+        Compiler.GreatEq -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.GreatEq)])
+        Compiler.And -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.And)])
+        Compiler.Or ->convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Or)])
+        Compiler.Not -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Not)])
+        Compiler.Neg -> convert remainingfile (env, arg, inst)
+    Right (remainingfile, _, _) -> convert remainingfile (env, arg, inst)
 
 
 getString :: Int -> BIN.ByteString -> String -> (String, BIN.ByteString)
