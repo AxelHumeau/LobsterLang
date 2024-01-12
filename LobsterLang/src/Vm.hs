@@ -24,7 +24,7 @@ data Value = IntVal Int
            | BoolVal Bool
            | CharVal Char
            | StringVal String
-        --    | ListVal [Value]
+           | ListVal [Value]
            | Op Operator
            | Function Func
            deriving (Show, Eq, Ord)
@@ -99,6 +99,8 @@ data Operator = Add
               | Not
               | ToString
               | Get
+              | Append
+              | RmOcc
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -285,8 +287,24 @@ makeOperation Get stack = case Stack.pop stack of
         (Just (IntVal x), stack2) -> Right (Stack.push stack2 (StringVal [s !! x]))
         (Just _, _) -> Left "Error : Wrong arguments for Get"
         (Nothing, _) -> Left "Error : Get need two arguments"
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (l !! x))
+        (Just _, _) -> Left "Error : Wrong arguments for Get"
+        (Nothing, _) -> Left "Error : Get need two arguments"
     (Just _, _) -> Left "Error : Cannot Get on not a String nor List"
     (Nothing, _) -> Left "Error : Get need two arguments"
+makeOperation Append stack = case Stack.pop stack of
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just v, stack2) -> Right (Stack.push stack2 (ListVal (l ++ [v])))
+        (Nothing, _) -> Left "Error : Append need two arguments"
+    (Just _, _) -> Left "Error : Cannot Append on not a List"
+    (Nothing, _) -> Left "Error : Append need two arguments"
+makeOperation RmOcc stack = case Stack.pop stack of
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just v, stack2) -> Right (Stack.push stack2 (ListVal (filter (/= v) l)))
+        (Nothing, _) -> Left "Error : RmOcc need two arguments"
+    (Just _, _) -> Left "Error : Cannot RmOcc on not a List"
+    (Nothing, _) -> Left "Error : RmOcc need two arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
@@ -324,6 +342,7 @@ exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Just (StringVal str) -> exec env arg  (Push (StringVal str):xs) stack
     Just (Op op) -> exec env arg (Push (Op op):xs) stack
     Just (Function func) -> exec env arg (Push (Function func):xs) stack
+    Just (ListVal list) -> exec env arg (Push (ListVal list):xs) stack
 exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
 exec env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = Left "Error: no jump possible"
