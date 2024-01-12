@@ -24,6 +24,7 @@ data Value = IntVal Int
            | BoolVal Bool
            | CharVal Char
            | StringVal String
+        --    | ListVal [Value]
            | Op Operator
            | Function Func
            deriving (Show, Eq, Ord)
@@ -115,6 +116,7 @@ data Instruction = Push Value
                 | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
+                | Jump Int
                 | Ret
 
 instance Show Instruction where
@@ -124,6 +126,7 @@ instance Show Instruction where
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
+    show (Jump x) = "Jump " ++ show x
     show Ret = "Ret"
 
 instance Ord Instruction where
@@ -240,6 +243,11 @@ exec env arg (JumpIfTrue val:xs) stack
   | val > length xs = Left "Error: invalid jump value"
   | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
   | (head stack) == BoolVal False = exec env arg xs stack
+  | otherwise = exec env arg (Prelude.drop val xs) stack
+exec env arg (Jump val:xs) stack
+  | Prelude.null xs = Left "Error: no jump possible"
+  | val < 0 = Left "Error: invalid jump value"
+  | val > length xs = Left "Error: invalid jump value"
   | otherwise = exec env arg (Prelude.drop val xs) stack
 exec _ _ (Ret : _) stack = case Stack.top stack of
     Just x -> Right x
