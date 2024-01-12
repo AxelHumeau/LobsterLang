@@ -47,51 +47,25 @@ converte file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStri
         --     Right (remfile, _, val) -> -- TODO: idk
         Compiler.Call -> converte remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> converte remainingfile (env, arg, inst ++ [Vm.Ret])
-        -- Right (remainingfile, _, 45) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+        -- Compiler.Cond -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
         --     Left _ -> return ([], [], [])
         --     Right (remfile, _, val) -> -- TODO: Condition ?
-        -- Compiler.Add -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Sub -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Mul -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Div -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Mod -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Eq -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Less -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.LessEq -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Great -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.GreatEq -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Add -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Or -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
-        -- Compiler.Not -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
+        Compiler.Add ->  converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
+        Compiler.Sub -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Sub)])
+        Compiler.Mul -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mul)])
+        Compiler.Div -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Div)])
+        Compiler.Mod -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mod)])
+        Compiler.Eq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Eq)])
+        Compiler.Less -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Less)])
+        Compiler.LessEq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.LessEq)])
+        Compiler.Great -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Great)])
+        Compiler.GreatEq -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.GreatEq)])
+        Compiler.And -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.And)])
+        Compiler.Or ->converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Or)])
+        Compiler.Not -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Not)])
         -- Compiler.Neg -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
         --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO:
+        --     Right (remfile, _, val) -> -- Maybe:
     Right (remainingfile, _, _) -> converte remainingfile (env, arg, inst)
 
 
