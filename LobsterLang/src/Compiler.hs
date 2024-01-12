@@ -248,6 +248,11 @@ astToInstructions (AST.Cond cond trueBlock Nothing) =
     trueBlockInstructions =
       astToInstructions trueBlock
     nbTrueBlockInstructions = length trueBlockInstructions
+
+_showInstruction :: Instruction -> Int -> [Char]
+_showInstruction NoOp _ = "NO_OP\n"
+_showInstruction (PushI value) depth =
+  concat (replicate depth "\t") ++ "PUSH_I " ++ show value ++ "\n"
 _showInstruction (PushB bool) depth =
   concat (replicate depth "\t") ++ "PUSH_B " ++ show bool ++ "\n"
 _showInstruction (PushStr stringValue) depth =
@@ -285,6 +290,8 @@ _showInstruction Div depth =
   concat (replicate depth "\t") ++ "DIV" ++ "\n"
 _showInstruction Mod depth =
   concat (replicate depth "\t") ++ "MOD" ++ "\n"
+_showInstruction XorB depth =
+  concat (replicate depth "\t") ++ "XOR_B" ++ "\n"
 _showInstruction Eq depth =
   concat (replicate depth "\t") ++ "EQ" ++ "\n"
 _showInstruction Less depth =
@@ -301,6 +308,8 @@ _showInstruction Or depth =
   concat (replicate depth "\t") ++ "OR" ++ "\n"
 _showInstruction Not depth =
   concat (replicate depth "\t") ++ "NOT" ++ "\n"
+_showInstruction ToStr depth =
+  concat (replicate depth "\t") ++ "TO_STR" ++ "\n"
 _showInstruction Neg depth =
   concat (replicate depth "\t") ++ "NEG" ++ "\n"
 _showInstruction Compiler.Call depth =
@@ -351,6 +360,12 @@ _showInstruction (Compiler.Cond condInstructions
     " true: (" ++ show nbTrueBlockInstructions ++
     "){\n" ++ _showInstructions trueBlockInstructions (depth + 1) ++ "}" ++
     " false: {}\n"
+_showInstruction Apnd depth =
+  concat (replicate depth "\t") ++ "APND" ++ "\n"
+_showInstruction RemAllOcc depth =
+  concat (replicate depth "\t") ++ "REM_ALL_OCC" ++ "\n"
+_showInstruction Get depth =
+  concat (replicate depth "\t") ++ "GET" ++ "\n"
 
 _instructionListLengths :: Maybe [[Instruction]] -> [Int]
 _instructionListLengths (Just []) = [0]
@@ -436,6 +451,8 @@ _compileInstruction Mul = _putOpCodeFromInstruction Mul
 _compileInstruction Div = _putOpCodeFromInstruction Div
 -- Mod
 _compileInstruction Mod = _putOpCodeFromInstruction Mod
+-- XorB
+_compileInstruction XorB = _putOpCodeFromInstruction XorB
 -- Eq
 _compileInstruction Eq = _putOpCodeFromInstruction Eq
 -- Less
@@ -452,6 +469,8 @@ _compileInstruction And = _putOpCodeFromInstruction And
 _compileInstruction Or = _putOpCodeFromInstruction Or
 -- Not
 _compileInstruction Not = _putOpCodeFromInstruction Not
+-- ToStr
+_compileInstruction ToStr = _putOpCodeFromInstruction ToStr
 -- Neg
 _compileInstruction Neg = _putOpCodeFromInstruction Neg
 -- Call
@@ -499,6 +518,12 @@ _compileInstruction (Compiler.Cond condInstructions
     _fputList _compileInstruction condInstructions
     >> _compileInstruction (JumpIfFalse nbTrueBlockInstructions)
     >> _fputList _compileInstruction trueBlockInstructions
+-- Apnd
+_compileInstruction Apnd = _putOpCodeFromInstruction Apnd
+-- RemAllOcc
+_compileInstruction RemAllOcc = _putOpCodeFromInstruction RemAllOcc
+-- Get
+_compileInstruction Get = _putOpCodeFromInstruction Get
 
 compileInstructions :: [Instruction] -> Put
 compileInstructions = _fputList _compileInstruction
