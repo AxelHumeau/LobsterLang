@@ -84,9 +84,10 @@ instance Fractional Value where
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
 
 data Operator = Add
-              | Subtract
-              | Multiply
-              | Divide
+              | Sub
+              | Mul
+              | Div
+              | Mod
               | Eq
               | Less
 
@@ -95,18 +96,20 @@ instance Ord Operator where
 
 instance Show Operator where
     show Add = "+"
-    show Subtract = "-"
-    show Multiply = "*"
-    show Divide = "/"
+    show Sub = "-"
+    show Mul = "*"
+    show Div = "/"
+    show Mod = "%"
     show Eq = "=="
     show Less = "<"
 
 instance Eq Operator where
     Add == Add = True
-    Subtract == Subtract = True
-    Multiply == Multiply = True
-    Divide == Divide = True
+    Sub == Sub = True
+    Mul == Mul = True
+    Div == Div = True
     Eq == Eq = True
+    Mod == Mod = True
     Less == Less = True
     _ == _ = False
 
@@ -159,23 +162,28 @@ makeOperation Add stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> Right (Stack.push stack2 (x + y))
         (Nothing, _) -> Left "Error : Add need two arguments"
-makeOperation Subtract stack = case Stack.pop stack of
+makeOperation Sub stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> Right (Stack.push stack2 (x - y))
-        (Nothing, _) -> Left "Error : Subtract need two arguments"
-    (Nothing, _) -> Left "Error : Subtract need two arguments"
-makeOperation Multiply stack = case Stack.pop stack of
+        (Nothing, _) -> Left "Error : Sub need two arguments"
+    (Nothing, _) -> Left "Error : Sub need two arguments"
+makeOperation Mul stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> Right (Stack.push stack2 (x * y))
-        (Nothing, _) -> Left "Error : Multiply need two arguments"
-    (Nothing, _) -> Left "Error : Multiply need two arguments"
-makeOperation Divide stack = case Stack.pop stack of
+        (Nothing, _) -> Left "Error : Mul need two arguments"
+    (Nothing, _) -> Left "Error : Mul need two arguments"
+makeOperation Div stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just (BoolVal False), _) -> Left "Error: division by zero"
         (Just (IntVal 0), _) -> Left "Error: division by zero"
         (Just y, stack2) -> Right (Stack.push stack2 (x / y))
-        (Nothing, _) -> Left "Error : Divide need two arguments"
-    (Nothing, _) -> Left "Error : Divide need two arguments"
+        (Nothing, _) -> Left "Error : Div need two arguments"
+    (Nothing, _) -> Left "Error : Div need two arguments"
+makeOperation Mod stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2) -> Right (Stack.push stack2 (x / y))
+        (Nothing, _) -> Left "Error : Div need two arguments"
+    (Nothing, _) -> Left "Error : Div need two arguments"
 makeOperation Eq stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
