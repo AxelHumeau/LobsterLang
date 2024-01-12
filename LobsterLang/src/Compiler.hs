@@ -5,6 +5,11 @@
 -- Compiler
 -}
 
+-- TODO: check all instructions creation, show and compilation
+-- TODO: Process functions to resolve args (replace symbol with pushArg) and add Ret at the end
+-- BONUS TODO: add magic number at start of file = l + o + b + s + t + e + r = 763 in binary
+-- BONUS TODO: basic java trans compilation
+
 module Compiler (
   compile,
   astToInstructions,
@@ -22,23 +27,29 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Binary
 import Data.Binary.Put
 
--- All if statement's possible forms are built-in instructions in java. do we do the same ?
+data CompileConstants = MagicNumber deriving (Show, Eq)
+instance Enum CompileConstants where
+  fromEnum MagicNumber = 763
+  toEnum 763 = MagicNumber
+
 data Instruction =
     NoOp
   -- Stack Instructions
   | PushI Int
   | PushB Bool
-  | PushS String -- rename to not be confused with push string
+  | PushSym String (Maybe [[Instruction]])
+  | PushStr String
+  | PushList Int [[Instruction]]
   -- Jump Instructions
   | Jump Int
   | JumpIfFalse Int
   -- Function Instructions
   | Def String Int [Instruction]
   | Fnv Int [String] Int [Instruction] [Int] (Maybe [[Instruction]])
-  | Call
+  | Call -- ()
   | Ret
   -- Logical Instructions
-  | Cond Int [Instruction] Int [Instruction] Int (Maybe [Instruction])
+  | Cond [Instruction] Int [Instruction] (Maybe [Instruction])
   -- Built-in Functions / Operators
     -- Arithmetic Operators
     | Add
@@ -46,6 +57,7 @@ data Instruction =
     | Mul
     | Div
     | Mod
+    | XorB -- ^^
     -- Comparison Operators
     | Eq
     | Less
@@ -57,7 +69,12 @@ data Instruction =
     | Or
     | Not -- Used to invert if statements and Boolean values.
     -- Unary Operators
+    | ToStr -- @
     | Neg -- Used only for negations that can not be determined at compile time (ex: Symbol negation)
+    -- Built-in Functions
+    | Apnd -- ++
+    | RemAllOcc -- --
+    | Get -- !!
   deriving (Show, Eq)
 
 instance Enum Instruction where
@@ -65,7 +82,9 @@ instance Enum Instruction where
   -- Stack Instructions [10 - 30]
   fromEnum (PushI _) = 10
   fromEnum (PushB _) = 11
-  fromEnum (PushS _) = 12
+  fromEnum (PushSym _ _) = 12
+  fromEnum (PushStr _) = 13
+  fromEnum (PushList _ _) = 14
   -- Jump Instructions [30 - 40]
   fromEnum (Jump _) = 30
   fromEnum (JumpIfFalse _) = 31
@@ -99,14 +118,16 @@ instance Enum Instruction where
   toEnum 0 = NoOp
   toEnum 10 = PushI 0
   toEnum 11 = PushB False
-  toEnum 12 = PushS ""
+  toEnum 12 = PushSym "" Nothing
+  toEnum 13 = PushStr ""
+  toEnum 14 = PushList 0 []
   toEnum 30 = Jump 0
   toEnum 31 = JumpIfFalse 0
   toEnum 40 = Def "" 0 []
   toEnum 41 = Fnv 0 [] 0 [] [] Nothing
   toEnum 42 = Compiler.Call
   toEnum 43 = Ret
-  toEnum 45 = Compiler.Cond 0 [] 0 [] 0 Nothing
+  toEnum 45 = Compiler.Cond [] 0 [] Nothing
   toEnum 50 = Add
   toEnum 51 = Sub
   toEnum 52 = Mul
@@ -126,9 +147,16 @@ instance Enum Instruction where
 astToInstructions :: Ast -> [Instruction]
 astToInstructions (Value value) = [PushI value]
 astToInstructions (Boolean bool) = [PushB bool]
-astToInstructions (Symbol symbolName) = [PushS symbolName]
-astToInstructions (AST.Call "-" [Value value]) = [PushI (-value)] -- Probably useless
-astToInstructions (AST.Call "-" [Symbol symbolName]) = PushS symbolName : [Neg]
+astToInstructions (Symbol symbolName Nothing) = [PushSym symbolName Nothing]
+astToInstructions (Symbol symbolName (Just symbolArgs)) =
+  [PushSym symbolName (Just symbolArgsInstructions)]
+  where
+    symbolArgsInstructions = map astToInstructions symbolArgs
+astToInstructions (String stringValue) = [PushStr stringValue]
+astToInstructions (List values) =
+  [PushList (length valuesInstructions) valuesInstructions]
+  where
+    valuesInstructions = map astToInstructions values
 astToInstructions (AST.Call "!" [Boolean bool]) = [PushB (not bool)]
 astToInstructions (AST.Call "+" args) =
   concatMap astToInstructions args ++ [Add]
@@ -156,8 +184,8 @@ astToInstructions (AST.Call "||" args) =
   concatMap astToInstructions args ++ [Or]
 astToInstructions (AST.Call "!" args) =
   concatMap astToInstructions args ++ [Not]
-astToInstructions (AST.Call funcName args) =
-  concatMap astToInstructions args ++ [PushS funcName] ++ [Compiler.Call]
+astToInstructions (AST.Call _ args) =
+  [NoOp]
 astToInstructions (Define symbolName value) =
   let symbolValue = astToInstructions value
   in [Def symbolName (length symbolValue) symbolValue]
@@ -185,43 +213,46 @@ astToInstructions (FunctionValue argsNames funcBody (Just argsValues)) =
     nbArgsValuesInstructions = _instructionListLengths argsValuesInstructions
 astToInstructions (AST.Cond cond trueBlock (Just falseBlock)) =
   [ Compiler.Cond
-    nbCondInstructions
     condInstructions
     nbTrueBlockInstructions
     trueBlockInstructions
-    nbFalseBlockInstructions
     (Just falseBlockInstructions) ]
   where
     condInstructions = astToInstructions cond
-    nbCondInstructions = length condInstructions
     falseBlockInstructions = astToInstructions falseBlock
-    nbFalseBlockInstructions = length falseBlockInstructions
     trueBlockInstructions =
-      astToInstructions trueBlock ++ [Jump nbFalseBlockInstructions]
+      astToInstructions trueBlock ++ [Jump (length falseBlockInstructions)]
     nbTrueBlockInstructions = length trueBlockInstructions
 astToInstructions (AST.Cond cond trueBlock Nothing) =
   [ Compiler.Cond
-    nbCondInstructions
     condInstructions
     nbTrueBlockInstructions
     trueBlockInstructions
-    0
     Nothing ]
   where
     condInstructions = astToInstructions cond
-    nbCondInstructions = length condInstructions
-    trueBlockInstructions = astToInstructions trueBlock
+    trueBlockInstructions =
+      astToInstructions trueBlock
     nbTrueBlockInstructions = length trueBlockInstructions
-
-_showInstruction :: Instruction -> Int -> String
-_showInstruction NoOp depth =
-  concat (replicate depth "\t") ++ "NO_OP\n"
-_showInstruction (PushI value) depth =
-  concat (replicate depth "\t") ++ "PUSH_I " ++ show value ++ "\n"
 _showInstruction (PushB bool) depth =
   concat (replicate depth "\t") ++ "PUSH_B " ++ show bool ++ "\n"
-_showInstruction (PushS symbolName) depth =
-  concat (replicate depth "\t") ++ "PUSH_S " ++ show symbolName ++ "\n"
+_showInstruction (PushStr stringValue) depth =
+  concat (replicate depth "\t") ++ "PUSH_STR " ++ stringValue ++ "\n"
+_showInstruction (PushSym symbolName Nothing) depth =
+    concat (replicate depth "\t") ++
+    "PUSH_SYM " ++
+    symbolName ++ "\n"
+_showInstruction (PushSym symbolName (Just symbolArgs)) depth =
+    concat (replicate depth "\t") ++
+    "PUSH_SYM " ++
+    symbolName ++ " " ++
+    "(" ++ show (length symbolArgs) ++ ")" ++
+    "[\n" ++ _showInstructionList symbolArgs (depth + 1) ++ "]\n"
+_showInstruction (PushList nbValuesInstructions valuesInstructions) depth =
+    concat (replicate depth "\t") ++
+    "PUSH_LIST " ++
+    "(" ++ show nbValuesInstructions ++ ")" ++
+    "[\n" ++ _showInstructionList valuesInstructions (depth + 1) ++ "]\n"
 _showInstruction (Jump branchOffset) depth =
   concat (replicate depth "\t")
   ++ "JUMP "
@@ -284,24 +315,23 @@ _showInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
     show argsNames ++
     " = (" ++ show nbFuncBodyInstructions ++
     "){\n" ++ _showInstructions funcBodyInstructions (depth + 1) ++ "}\n"
-_showInstruction (Compiler.Cond nbCondInstructions condInstructions
-  nbTrueBlockInstructions trueBlockInstructions nbFalseBlockInstructions
+_showInstruction (Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions
   (Just falseBlockInstructions)) depth =
     concat (replicate depth "\t") ++
     "COND " ++
-    "(" ++ show nbCondInstructions ++ ")" ++
+    "(" ++ show (length condInstructions) ++ ")" ++
     "(\n" ++ _showInstructions condInstructions (depth + 1) ++
     _showInstruction (JumpIfFalse nbTrueBlockInstructions) 0 ++ ")" ++
     " true: (" ++ show nbTrueBlockInstructions ++
     "){\n" ++ _showInstructions trueBlockInstructions (depth + 1) ++ "}" ++
-    " false: (" ++ show nbFalseBlockInstructions ++
+    " false: (" ++ show (length falseBlockInstructions) ++
     "){\n" ++ _showInstructions falseBlockInstructions (depth + 1) ++ "}\n"
-_showInstruction (Compiler.Cond nbCondInstructions condInstructions
-  nbTrueBlockInstructions trueBlockInstructions _
-  Nothing) depth =
+_showInstruction (Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions Nothing) depth =
     concat (replicate depth "\t") ++
     "COND " ++
-    "(" ++ show nbCondInstructions ++ ")" ++
+    "(" ++ show (length condInstructions) ++ ")" ++
     "(\n" ++ _showInstructions condInstructions (depth + 1) ++
     _showInstruction (JumpIfFalse nbTrueBlockInstructions) 0 ++ ")" ++
     " true: (" ++ show nbTrueBlockInstructions ++
@@ -341,50 +371,86 @@ _fputList func (element:elements) = func element >> _fputList func elements
 
 _putString :: String -> Put
 _putString string = let byteString = BSUTF8.fromString string
-  in putInt32le (fromIntegral (BS.length byteString))
+  in putInt32be (fromIntegral (BS.length byteString))
   >> putByteString byteString
 
 _putInt32 :: Int -> Put
-_putInt32 value = putInt32le (fromIntegral (value::Int))
+_putInt32 value = putInt32be (fromIntegral (value::Int))
 
 _putBool :: Bool -> Put
 _putBool bool = putWord8 (fromIntegral (fromEnum bool))
 
 _compileInstruction :: Instruction -> Put
+-- NoOp
 _compileInstruction NoOp = _putOpCodeFromInstruction NoOp
+-- PushI
 _compileInstruction (PushI value) =
   _putOpCodeFromInstruction (PushI value) >> _putInt32 value
+-- PushB
 _compileInstruction (PushB bool) =
   _putOpCodeFromInstruction (PushB bool) >> _putBool bool
-_compileInstruction (PushS symbolName) =
-  _putOpCodeFromInstruction (PushS symbolName) >> _putString symbolName
+-- PushSym
+_compileInstruction (PushSym symbolName Nothing) =
+  _putOpCodeFromInstruction (PushSym symbolName Nothing)
+  >> _putString symbolName
+_compileInstruction (PushSym symbolName (Just symbolArgs)) =
+  _fputList compileInstructions symbolArgs
+  >> _putOpCodeFromInstruction (PushSym symbolName (Just symbolArgs))
+  >> _putString symbolName >> _putOpCodeFromInstruction Compiler.Call
+-- PushStr
+_compileInstruction (PushStr stringValue) =
+  _putOpCodeFromInstruction (PushStr stringValue) >> _putString stringValue
+-- PushList
+_compileInstruction (PushList nbListValues listValues) =
+  _putOpCodeFromInstruction (PushList nbListValues listValues)
+  >> _putInt32 nbListValues >> _fputList compileInstructions listValues
+-- Jump
 _compileInstruction (Jump branchOffset) =
   _putOpCodeFromInstruction (Jump branchOffset)
   >> _putInt32 branchOffset
+-- JumpIfFalse
 _compileInstruction (JumpIfFalse branchOffset) =
   _putOpCodeFromInstruction (JumpIfFalse branchOffset)
   >> _putInt32 branchOffset
+-- Add
 _compileInstruction Add = _putOpCodeFromInstruction Add
+-- Sub
 _compileInstruction Sub = _putOpCodeFromInstruction Sub
+-- Mul
 _compileInstruction Mul = _putOpCodeFromInstruction Mul
+-- Div
 _compileInstruction Div = _putOpCodeFromInstruction Div
+-- Mod
 _compileInstruction Mod = _putOpCodeFromInstruction Mod
+-- Eq
 _compileInstruction Eq = _putOpCodeFromInstruction Eq
+-- Less
 _compileInstruction Less = _putOpCodeFromInstruction Less
+-- LessEq
 _compileInstruction LessEq = _putOpCodeFromInstruction LessEq
+-- Great
 _compileInstruction Great = _putOpCodeFromInstruction Great
+-- GreatEq
 _compileInstruction GreatEq = _putOpCodeFromInstruction GreatEq
+-- And
 _compileInstruction And = _putOpCodeFromInstruction And
+-- Or
 _compileInstruction Or = _putOpCodeFromInstruction Or
+-- Not
 _compileInstruction Not = _putOpCodeFromInstruction Not
+-- Neg
 _compileInstruction Neg = _putOpCodeFromInstruction Neg
+-- Call
 _compileInstruction Compiler.Call = _putOpCodeFromInstruction Compiler.Call
+-- Ret
 _compileInstruction Ret = _putOpCodeFromInstruction Ret
+-- Def
 _compileInstruction (Def symbolName nbInstruction instructions)
   = _putOpCodeFromInstruction (Def symbolName nbInstruction instructions)
     >> _putString symbolName
     >> _putInt32 nbInstruction
     >> compileInstructions instructions
+-- Fnv
 _compileInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
   funcBodyInstructions nbArgsValuesInstructions
   (Just argsValuesInstructions)) =
@@ -406,29 +472,19 @@ _compileInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
     >> _fputList _putString argsNames
     >> _putInt32 nbFuncBodyInstructions
     >> _fputList _compileInstruction funcBodyInstructions
-_compileInstruction (Compiler.Cond nbCondInstructions condInstructions
-  nbTrueBlockInstructions trueBlockInstructions nbFalseBlockInstructions
+-- Cond
+_compileInstruction (Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions
   (Just falseBlockInstructions)) =
-    _putOpCodeFromInstruction (Compiler.Cond nbCondInstructions
-      condInstructions nbTrueBlockInstructions trueBlockInstructions
-      nbFalseBlockInstructions (Just falseBlockInstructions))
-    >> _putInt32 nbCondInstructions
-    >> _fputList _compileInstruction condInstructions
+    _fputList _compileInstruction condInstructions
     >> _compileInstruction (JumpIfFalse nbTrueBlockInstructions)
     >> _fputList _compileInstruction trueBlockInstructions
-    >> _putInt32 nbFalseBlockInstructions
     >> _fputList _compileInstruction falseBlockInstructions
-_compileInstruction (Compiler.Cond nbCondInstructions condInstructions
-  nbTrueBlockInstructions trueBlockInstructions nbFalseBlockInstructions
-  Nothing) =
-    _putOpCodeFromInstruction (Compiler.Cond nbCondInstructions
-      condInstructions nbTrueBlockInstructions trueBlockInstructions
-      nbFalseBlockInstructions Nothing)
-    >> _putInt32 nbCondInstructions
-    >> _fputList _compileInstruction condInstructions
+_compileInstruction (Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions Nothing) =
+    _fputList _compileInstruction condInstructions
     >> _compileInstruction (JumpIfFalse nbTrueBlockInstructions)
     >> _fputList _compileInstruction trueBlockInstructions
-    >> _putInt32 nbFalseBlockInstructions
 
 compileInstructions :: [Instruction] -> Put
 compileInstructions = _fputList _compileInstruction
