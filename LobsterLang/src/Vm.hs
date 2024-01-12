@@ -95,6 +95,7 @@ data Operator = Add
               | GreatEq
               | And
               | Or
+              | Xorb
               | Not
 
 instance Ord Operator where
@@ -113,6 +114,7 @@ instance Show Operator where
     show GreatEq = ">="
     show And = "&&"
     show Or = "||"
+    show Xorb = "^^"
     show Not = "!"
 
 instance Eq Operator where
@@ -128,6 +130,7 @@ instance Eq Operator where
     GreatEq == GreatEq = True
     And == And = True
     Or == Or = True
+    Xorb == Xorb = True
     Not == Not = True
     _ == _ = False
 
@@ -251,8 +254,16 @@ makeOperation Or stack = case Stack.pop stack of
         (Just y, stack2)
             | x == (BoolVal True) || y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
-        (Nothing, _) -> Left "Error : Great need two arguments"
-    (Nothing, _) -> Left "Error : Great need two arguments"
+        (Nothing, _) -> Left "Error : Or need two arguments"
+    (Nothing, _) -> Left "Error : Or need two arguments"
+makeOperation Xorb stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | x == (BoolVal False) && y == (BoolVal False) -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : XOrb need two arguments"
+    (Nothing, _) -> Left "Error : XOrb need two arguments"
 makeOperation Not stack = case Stack.pop stack of
     (Just x, stack1)
         | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
