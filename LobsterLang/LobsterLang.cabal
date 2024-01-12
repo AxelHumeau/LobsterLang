@@ -27,6 +27,7 @@ library
   exposed-modules:
       AST
       AstEval
+      AstOptimizer
       Compiler
       Parse
       Scope
@@ -69,6 +70,7 @@ test-suite LobsterLang-test
   main-is: Spec.hs
   other-modules:
       AstEvalSpec
+      AstOptimizerSpec
       CompilerSpec
       VmSpec
       Paths_LobsterLang
