@@ -97,6 +97,8 @@ data Operator = Add
               | Or
               | Xorb
               | Not
+              | ToString
+              | Get
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -116,6 +118,8 @@ instance Show Operator where
     show Or = "||"
     show Xorb = "^^"
     show Not = "!"
+    show ToString = "@"
+    show Get = "!!"
 
 instance Eq Operator where
     Add == Add = True
@@ -269,7 +273,20 @@ makeOperation Not stack = case Stack.pop stack of
         | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
         | otherwise -> Right (Stack.push stack1 (BoolVal False))
     (Nothing, _) -> Left "Error : Great need One arguments"
-
+makeOperation ToString stack = case Stack.pop stack of
+    (Just (IntVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (BoolVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (CharVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (StringVal x), stack1) -> Right (Stack.push stack1 (StringVal x))
+    (Just _, _) -> Left "Error : Cannot convert to string"
+    (Nothing, _) -> Left "Error : ToString need One arguments"
+makeOperation Get stack = case Stack.pop stack of
+    (Just (StringVal s), stack1) -> case Stack.pop stack1 of
+        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (StringVal [s !! x]))
+        (Just _, _) -> Left "Error : Wrong arguments for Get"
+        (Nothing, _) -> Left "Error : Get need two arguments"
+    (Just _, _) -> Left "Error : Cannot Get on not a String nor List"
+    (Nothing, _) -> Left "Error : Get need two arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
