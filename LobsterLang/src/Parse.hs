@@ -38,7 +38,8 @@ module Parse (
     parseWhiteSpace,
     errorParsing,
     parseDefineFn,
-    parseCond
+    parseCond,
+    parseCmpString
 ) where
 
 import qualified AST
@@ -343,6 +344,14 @@ parseAnyString s = Parser (f s s)
             Right (_, s'', pos') -> f xs str pos' s''
         f [] str pos s' = Right (str, s', pos)
 
+parseCmpString :: String -> Parser String
+parseCmpString s = parseWhiteSpace *> Parser (f s) <* parseWhiteSpace
+    where
+        f :: String -> Position -> String -> Either String (String, String, Position)
+        f str pos s' = case runParser parseString pos s' of
+            Left err -> Left err
+            Right (res, s'', pos') -> if str == res then Right (res, s'', pos') else Left (errorParsing pos')
+
 -- | Return a Parser that parse a Bool (#f or #t)
 parseBool :: Parser AST.Ast
 parseBool = AST.Boolean <$> (parseTrue <|> parseFalse) <* parseWhiteSpace
@@ -408,12 +417,8 @@ parseAst = parseWhiteSpace *>
         )
 
 parseDefineFn :: Parser AST.Ast
-parseDefineFn = (Parser parseFn) *> (Parser defineFn)
+parseDefineFn = parseCmpString "fn" *> (Parser defineFn)
     where
-        parseFn :: Position -> String -> Either String (String, String, Position)
-        parseFn pos s = case runParser (parseAnyString "fn") pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> Right (res, s', pos')
         defineFn :: Position -> String -> Either String (AST.Ast, String, Position)
         defineFn s pos = case runParser parseString s pos of
             Left err -> Left err
@@ -434,11 +439,11 @@ parseFunctionValue = Parser parseParams
 parseBracket :: Parser AST.Ast
 parseBracket = parseStart *> parseAst <* parseEnd
     where
-        parseEnd = parseChar '}' <* parseWhiteSpace
-        parseStart = parseWhiteSpace *> parseChar '{'
+        parseEnd = parseWhiteSpace *> parseChar '}' <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseChar '{' <* parseWhiteSpace
 
 parseCond :: Parser AST.Ast
-parseCond = parseAnyString "if" *> Parser parseIf
+parseCond = parseCmpString "if" *> Parser parseIf
     where
         parseIf :: Position -> String -> Either String (AST.Ast, String, Position)
         parseIf pos s = case runParser parseExpr pos s of
@@ -446,17 +451,17 @@ parseCond = parseAnyString "if" *> Parser parseIf
             Right (res, s', pos') -> case runParser parseBracket pos' s' of
                 Left err -> Left err
                 Right (res', s'', pos'') -> case runParser parseElse pos'' s'' of
-                    Left err -> Left err
-                    Right (res'', s''', pos''') -> Right ((AST.Cond res res' res''), s''', pos''')
-        parseElse :: Parser (Maybe AST.Ast)
-        parseElse = Parser f
+                    Left _ -> Right ((AST.Cond res res' Nothing), s'', pos'')
+                    Right (res'', s''', pos''') -> Right ((AST.Cond res res' (Just res'')), s''', pos''')
+        parseElse :: Parser AST.Ast
+        parseElse = parseCmpString "else" *> Parser p
             where
-                f :: Position -> String -> Either String ((Maybe AST.Ast), String, Position)
-                f pos s = case runParser (parseAnyString "else") pos s of
-                    Left _ -> Right (Nothing, s, pos)
-                    Right (_, s', pos') -> case runParser parseBracket pos' s' of
+                p :: Position -> String -> Either String (AST.Ast, String, Position)
+                p pos s = case runParser parseCond pos s of
+                    Left _ -> case runParser parseBracket pos s of
                         Left err -> Left err
-                        Right (res, s'', pos'') -> Right ((Just res), s'', pos'')
+                        Right (res, s', pos') -> Right (res, s', pos')
+                    Right (res, s', pos') -> Right (res, s', pos')
 
 parseLobster :: Parser [AST.Ast]
 parseLobster = parseSome (parseWhiteSpace *> parseAst)
