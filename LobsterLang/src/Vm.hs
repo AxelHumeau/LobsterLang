@@ -205,8 +205,8 @@ makeOperation Mod stack = case Stack.pop stack of
         (Just y, stack2) -> case (x, y) of
             (IntVal a, IntVal b) -> Right (Stack.push stack2 (IntVal (a `mod` b)))
             _ -> Left "Error: Mod needs two integer arguments"
-        (Nothing, _) -> Left "Error : Div need two arguments"
-    (Nothing, _) -> Left "Error : Div need two arguments"
+        (Nothing, _) -> Left "Error : Mod need two arguments"
+    (Nothing, _) -> Left "Error : Mod need two arguments"
 makeOperation Eq stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
@@ -247,8 +247,8 @@ makeOperation And stack = case Stack.pop stack of
         (Just y, stack2)
             | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
-        (Nothing, _) -> Left "Error : Great need two arguments"
-    (Nothing, _) -> Left "Error : Great need two arguments"
+        (Nothing, _) -> Left "Error : And need two arguments"
+    (Nothing, _) -> Left "Error : And need two arguments"
 makeOperation Or stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
@@ -268,7 +268,7 @@ makeOperation Not stack = case Stack.pop stack of
     (Just x, stack1)
         | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
         | otherwise -> Right (Stack.push stack1 (BoolVal False))
-    (Nothing, _) -> Left "Error : Great need One arguments"
+    (Nothing, _) -> Left "Error : Not need One arguments"
 
 
 isBoolVal :: Maybe Value -> Bool
