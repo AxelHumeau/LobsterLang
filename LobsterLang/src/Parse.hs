@@ -396,7 +396,9 @@ parseUnaryOperation = Parser f
 parseAst :: Parser AST.Ast
 parseAst = parseWhiteSpace *>
         (
-            parseDefineValue
+            parseDefineFn
+        <|> parseCond
+        <|> parseDefineValue
         <|> parseExpr
         <|> parseBool
         <|> parseUnaryOperation
