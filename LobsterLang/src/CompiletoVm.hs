@@ -34,19 +34,16 @@ converte file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStri
     Right (remainingfile, _, 30) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
         Left _ -> return ([], [], [])
         Right (remfile, _, val) -> converte remfile (env, arg, inst ++ [Jump (fromIntegral (val :: Int32) :: Int)]) -- TODO:
-    Right (remainingfile, _, _) -> converte remainingfile (env, arg, inst)
-    -- Right (remainingfile, _, 31) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-    --     Left _ -> return ([], [], [])
-    --     Right (remfile, _, val) -> -- TODO:
+    Right (remainingfile, _, 31) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+        Left _ -> return ([], [], [])
+        Right (remfile, _, val) -> converte remfile (env, arg, inst ++ [JumpIfFalse (fromIntegral (val :: Int32) :: Int)])
     -- Right (remainingfile, _, 40) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
     --     Left _ -> return ([], [], [])
     --     Right (remfile, _, val) -> -- TODO:
     -- Right (remainingfile, _, 41) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
     --     Left _ -> return ([], [], [])
     --     Right (remfile, _, val) -> -- TODO:
-    -- Right (remainingfile, _, 42) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-    --     Left _ -> return ([], [], [])
-    --     Right (remfile, _, val) -> -- TODO:
+    Right (remainingfile, _, 42) -> converte remainingfile (env, arg, inst ++ [Vm.Call])
     -- Right (remainingfile, _, 43) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
     --     Left _ -> return ([], [], [])
     --     Right (remfile, _, val) -> -- TODO:
@@ -95,6 +92,7 @@ converte file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStri
     --  Right (remainingfile, _, 80) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
     --     Left _ -> return ([], [], [])
     --     Right (remfile, _, val) -> -- TODO:
+    Right (remainingfile, _, _) -> converte remainingfile (env, arg, inst)
 
 
 getString :: Int -> BIN.ByteString -> String -> (String, BIN.ByteString)
