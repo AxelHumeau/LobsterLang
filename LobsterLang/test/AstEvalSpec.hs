@@ -196,6 +196,18 @@ spec = do
             evalAst [] (AST.Call "!!" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value 3]) `shouldBe` (Left "Index out of range", [])
         it "Check bad index list 2" $ do
             evalAst [] (AST.Call "!!" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value (-1)]) `shouldBe` (Left "Index out of range", [])
+        it "Index wrong type" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.String "abc"]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index wrong type 2" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.Boolean True]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index wrong type 3" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.FunctionValue [] (AST.Value 1) Nothing]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list" $ do
+            evalAst [] (Call "!!" [AST.FunctionValue [] (AST.Value 1) Nothing, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list 2" $ do
+            evalAst [] (Call "!!" [AST.Boolean True, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list 3" $ do
+            evalAst [] (Call "!!" [AST.Value 0, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
         it "Check length empty list" $ do
             evalAst [] (Call "len" [AST.List []]) `shouldBe` (Right (Just (AST.Value 0)), [])
         it "Check non empty list" $ do
@@ -210,6 +222,23 @@ spec = do
             evalAst [] (Call "--" [AST.List [], AST.Value 5]) `shouldBe` (Right (Just (AST.List [])), [])
         it "Check remove occurence 3" $ do
             evalAst [] (Call "--" [AST.List [AST.Value 5, AST.Value 5, AST.Value 5, AST.Value 5], AST.Value 5]) `shouldBe` (Right (Just (AST.List [])), [])
+    describe "String operations tests" $ do
+        it "Concatenation" $ do
+            evalAst [] (Call "+" [AST.String "Hello ", AST.String "World"]) `shouldBe` (Right (Just (AST.String "Hello World")), [])
+        it "Concatenation 2" $ do
+            evalAst [] (Call "+" [AST.String "", AST.String "World"]) `shouldBe` (Right (Just (AST.String "World")), [])
+        it "Concatenation 3" $ do
+            evalAst [] (Call "+" [AST.String "World", AST.String ""]) `shouldBe` (Right (Just (AST.String "World")), [])
+        it "Concatenation 4" $ do
+            evalAst [] (Call "+" [AST.String "", AST.String ""]) `shouldBe` (Right (Just (AST.String "")), [])
+        it "Index" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value 1]) `shouldBe` (Right (Just (AST.String "b")), [])
+        it "Index out of range" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value 3]) `shouldBe` (Left "Index out of range", [])
+        it "Index out of range 2" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value (-1)]) `shouldBe` (Left "Index out of range", [])
+        it "Index wrong type" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.List [AST.Value (-1)]]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
     describe "Advanced Ast evaluation tests" $ do
         -- Advanced tests
         it "Check factorial definition" $ do
