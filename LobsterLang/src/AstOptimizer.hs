@@ -17,13 +17,29 @@ import AstEval
 import Data.Maybe
 import Scope (ScopeMb, getVarInScope)
 
+-- Represent an error containing the error message
+-- and the `Ast` that caused it
 data AstError = Error String Ast deriving (Eq, Show)
 
+-- Represent an AST after optimization
 data AstOptimised
-  = Result Ast
+  =
+  -- | The `Ast` after optimization
+  Result Ast
+  -- | When the optimization throw a warning
+  -- contains the warining message and the `Ast`
+  -- post optimization that caused it
   | Warning String Ast
   deriving (Eq, Show)
 
+-- | Optimize a list of `Ast` and check for invalid operation:
+-- optimization is taking place when operation have the same result no matter what
+-- for exemple `3 + 3`, when a forbidden operation is taking place, the
+-- optimization results in an `AstError`, when the optimization was a success
+-- it results in an `AstOptimised`.
+-- Takes the stack (`[ScopeMb]`), a list of `Ast`, a boolean to indicate whether
+-- the optimization take place insinde a function and returns the list of `Either`
+-- `AstError` or `AstOptimised`
 optimizeAst :: [ScopeMb] -> [Ast] -> Bool -> [Either AstError AstOptimised]
 optimizeAst stack ((Value v) : xs) inFunc = Right (Result (Value v)) : optimizeAst stack xs inFunc
 optimizeAst stack ((Boolean b) : xs) inFunc = Right (Result (Boolean b)) : optimizeAst stack xs inFunc
@@ -106,6 +122,7 @@ optimizeAst stack (FunctionValue params ast (Just asts) : xs) inFunc
   | otherwise = checkEvalReturnSame stack (FunctionValue params ast (Just asts) : xs) inFunc
 optimizeAst _ [] _ = []
 
+-- | Check whether an `Ast` is optimizable
 isUnoptimizable :: Ast -> Bool
 isUnoptimizable (Define _ ast) = isUnoptimizable ast
 isUnoptimizable (Value _) = True
@@ -128,6 +145,7 @@ isUnoptimizable (Cond condAst bodyAst Nothing) =
 isUnoptimizable (Cond condAst bodyAst (Just elseAst)) =
   isUnoptimizable condAst && isUnoptimizable bodyAst && isUnoptimizable elseAst
 
+-- | Check whether the `Ast` is a constant value
 isValue :: Ast -> Bool
 isValue (Value _) = True
 isValue (Boolean _) = True
@@ -136,10 +154,14 @@ isValue (List _) = True
 isValue (FunctionValue _ _ Nothing) = True
 isValue _ = False
 
+-- | Get the `Ast` contained in a `AstOptimised`
 fromOptimised :: AstOptimised -> Ast
 fromOptimised (Warning _ ast) = ast
 fromOptimised (Result ast) = ast
 
+-- | Handle cases where the optimization depends on
+-- the result of a evaluation of the `Ast` and it have to return evaluated
+-- result
 checkEval :: [ScopeMb] -> [Ast] -> Bool -> [Either AstError AstOptimised]
 checkEval stack (ast : xs) inFunc = case evalAst stack ast of
   (Left ('R' : 'e' : 'c' : 'u' : 'r' : 's' : 'i' : 'o' : 'n' : _), _) ->
@@ -152,6 +174,8 @@ checkEval stack (ast : xs) inFunc = case evalAst stack ast of
   _ -> shouldntHappen stack (ast : xs) inFunc
 checkEval _ _ _ = [Right (Warning "This situation really shouldn't happen" (String "bruh"))]
 
+-- | Handle cases where the optimization depends on
+-- the result of a evaluation of the `Ast` and it have to return the original `Ast`
 checkEvalReturnSame :: [ScopeMb] -> [Ast] -> Bool -> [Either AstError AstOptimised]
 checkEvalReturnSame stack (ast : xs) inFunc = case evalAst stack ast of
   (Left ('R' : 'e' : 'c' : 'u' : 'r' : 's' : 'i' : 'o' : 'n' : _), _) ->
