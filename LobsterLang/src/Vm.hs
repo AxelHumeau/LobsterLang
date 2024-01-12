@@ -90,6 +90,12 @@ data Operator = Add
               | Mod
               | Eq
               | Less
+              | LessEq
+              | Great
+              | GreatEq
+              | And
+              | Or
+              | Not
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -102,6 +108,12 @@ instance Show Operator where
     show Mod = "%"
     show Eq = "=="
     show Less = "<"
+    show LessEq = "<="
+    show Great = ">"
+    show GreatEq = ">="
+    show And = "&&"
+    show Or = "||"
+    show Not = "!"
 
 instance Eq Operator where
     Add == Add = True
@@ -111,6 +123,12 @@ instance Eq Operator where
     Eq == Eq = True
     Mod == Mod = True
     Less == Less = True
+    Great == Great = True
+    LessEq == LessEq = True
+    GreatEq == GreatEq = True
+    And == And = True
+    Or == Or = True
+    Not == Not = True
     _ == _ = False
 
 data Instruction = Push Value
@@ -181,7 +199,9 @@ makeOperation Div stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : Div need two arguments"
 makeOperation Mod stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
-        (Just y, stack2) -> Right (Stack.push stack2 (x / y))
+        (Just y, stack2) -> case (x, y) of
+            (IntVal a, IntVal b) -> Right (Stack.push stack2 (IntVal (a `mod` b)))
+            _ -> Left "Error: Mod needs two integer arguments"
         (Nothing, _) -> Left "Error : Div need two arguments"
     (Nothing, _) -> Left "Error : Div need two arguments"
 makeOperation Eq stack = case Stack.pop stack of
@@ -198,6 +218,47 @@ makeOperation Less stack = case Stack.pop stack of
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : Less need two arguments"
     (Nothing, _) -> Left "Error : Less need two arguments"
+makeOperation LessEq stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x <= y -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : LessEq need two arguments"
+    (Nothing, _) -> Left "Error : LessEq need two arguments"
+makeOperation Great stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x > y -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : Great need two arguments"
+    (Nothing, _) -> Left "Error : Great need two arguments"
+makeOperation GreatEq stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x >= y -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : GreatEq need two arguments"
+    (Nothing, _) -> Left "Error : GreatEq need two arguments"
+makeOperation And stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : Great need two arguments"
+    (Nothing, _) -> Left "Error : Great need two arguments"
+makeOperation Or stack = case Stack.pop stack of
+    (Just x, stack1) -> case Stack.pop stack1 of
+        (Just y, stack2)
+            | x == (BoolVal True) || y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Nothing, _) -> Left "Error : Great need two arguments"
+    (Nothing, _) -> Left "Error : Great need two arguments"
+makeOperation Not stack = case Stack.pop stack of
+    (Just x, stack1)
+        | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
+        | otherwise -> Right (Stack.push stack1 (BoolVal False))
+    (Nothing, _) -> Left "Error : Great need One arguments"
+
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
