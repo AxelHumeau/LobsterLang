@@ -79,6 +79,8 @@ evalAst stack (AST.List l) = case evalSubParams stack l of
   (Right Nothing) -> (Left "Cannot have Nothing in a list", stack)
 evalAst stack (AST.String str) = (Right (Just (AST.String str)), stack)
 evalAst stack (Boolean b) = (Right (Just (Boolean b)), stack)
+evalAst stack (Call "+" [AST.String s1, AST.String s2]) =
+  (Right (Just (AST.String (s1 ++ s2))), stack)
 evalAst stack (Call "+" astList) = evalBiValOp (+) stack (Call "+" astList)
 evalAst stack (Call "-" astList) = evalBiValOp (-) stack (Call "-" astList)
 evalAst stack (Call "*" astList) = evalBiValOp (*) stack (Call "*" astList)
@@ -292,8 +294,6 @@ getElemInAstList _ (Call "!!" [AST.Boolean _, _]) =
   Left (invalidParamsBiOp "!!")
 getElemInAstList _ (Call "!!" [_, AST.Boolean _]) =
   Left (invalidParamsBiOp "!!")
-getElemInAstList _ (Call "!!" [AST.String _, _]) =
-  Left (invalidParamsBiOp "!!")
 getElemInAstList _ (Call "!!" [_, AST.String _]) =
   Left (invalidParamsBiOp "!!")
 getElemInAstList _ (Call "!!" [_, AST.List _]) =
@@ -307,6 +307,10 @@ getElemInAstList _ (Call "!!" [_, AST.FunctionValue _ _ Nothing]) =
 getElemInAstList _ (Call "!!" [AST.List a, AST.Value b])
   | b < 0 = Left "Index out of range"
   | length a > b = Right (a !! b)
+  | otherwise = Left "Index out of range"
+getElemInAstList _ (Call "!!" [AST.String a, AST.Value b])
+  | b < 0 = Left "Index out of range"
+  | length a > b = Right (AST.String [a !! b])
   | otherwise = Left "Index out of range"
 getElemInAstList stack (Call "!!" [ast1, ast2]) =
   case evalSubParams stack [ast1, ast2] of
@@ -381,6 +385,8 @@ astToString _ (AST.Value val) = Right (AST.String (show val))
 astToString _ (AST.Boolean bool) = Right (AST.String (show bool))
 astToString _ (AST.FunctionValue _ _ Nothing) =
   Left "Cannot convert lambda to string"
+astToString _ (AST.List _) =
+  Left "Cannot convert list to string"
 astToString stack ast = case evalAst stack ast of
   (Left err, _) -> Left err
   (Right ast', _) ->
