@@ -47,9 +47,6 @@ converte file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStri
         --     Right (remfile, _, val) -> -- TODO: idk
         Compiler.Call -> converte remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> converte remainingfile (env, arg, inst ++ [Vm.Ret])
-        -- Compiler.Cond -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO: Condition ?
         Compiler.Add ->  converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
         Compiler.Sub -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Sub)])
         Compiler.Mul -> converte remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Mul)])
