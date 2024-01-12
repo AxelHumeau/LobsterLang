@@ -345,7 +345,7 @@ parseAnyString s = Parser (f s s)
         f [] str pos s' = Right (str, s', pos)
 
 parseCmpString :: String -> Parser String
-parseCmpString s = parseWhiteSpace *> Parser (f s) <* parseWhiteSpace
+parseCmpString s = Parser (f s)
     where
         f :: String -> Position -> String -> Either String (String, String, Position)
         f str pos s' = case runParser parseString pos s' of
