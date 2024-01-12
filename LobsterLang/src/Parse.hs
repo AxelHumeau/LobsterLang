@@ -425,7 +425,9 @@ parseFunctionValue = Parser parseParams
         parseParams :: Position -> String -> Either String (AST.Ast, String, Position)
         parseParams s pos = case runParser (parseList parseString) s pos of
             Left err -> Left err
-            Right (res, s', pos') -> Right (AST.FunctionValue res (AST.Value 1) Nothing, s', pos')
+            Right (res, s', pos') -> case runParser parseBracket pos' s' of
+                Left err -> Left err
+                Right (res', s'', pos'') -> Right (AST.FunctionValue res res' Nothing, s'', pos'')
 
 parseBracket :: Parser AST.Ast
 parseBracket = parseStart *> parseAst <* parseEnd
