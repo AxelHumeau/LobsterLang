@@ -42,10 +42,7 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         Compiler.JumpIfFalse _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
             Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.JumpIfFalse (fromIntegral (val :: Int32) :: Int)])
-        -- Compiler.Def -> -- TODO:
-        -- Right (remainingfile, _, 41) -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return ([], [], [])
-        --     Right (remfile, _, val) -> -- TODO: idk
+        Compiler.Def _ _ _ -> convert remainingfile (env, arg, inst)
         Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
@@ -61,8 +58,13 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         Compiler.And -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.And)])
         Compiler.Or ->convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Or)])
         Compiler.Not -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Not)])
+        Compiler.ToStr -> convert remainingfile (env, arg, inst)
+        Compiler.Apnd -> convert remainingfile (env, arg, inst)
+        Compiler.RemAllOcc -> convert remainingfile (env, arg, inst)
+        Compiler.Get -> convert remainingfile (env, arg, inst)
         Compiler.Neg -> convert remainingfile (env, arg, inst)
-    Right (remainingfile, _, _) -> convert remainingfile (env, arg, inst)
+        Compiler.PushList _ _ -> convert remainingfile (env, arg, inst)
+        _ -> convert remainingfile (env, arg, inst)
 
 
 getString :: Int -> BIN.ByteString -> String -> (String, BIN.ByteString)
