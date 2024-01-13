@@ -122,6 +122,8 @@ instance Show Operator where
     show Not = "!"
     show ToString = "@"
     show Get = "!!"
+    show RmOcc = "--"
+    show Append = "++"
 
 instance Eq Operator where
     Add == Add = True
@@ -147,6 +149,7 @@ data Instruction = Push Value
                 | JumpIfFalse Int
                 | JumpIfTrue Int
                 | Jump Int
+                | Define String
                 | Ret
 
 instance Show Instruction where
@@ -157,6 +160,7 @@ instance Show Instruction where
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
     show (Jump x) = "Jump " ++ show x
+    show (Define x) = "Define " ++ show x
     show Ret = "Ret"
 
 instance Ord Instruction where
@@ -365,6 +369,9 @@ exec env arg (Jump val:xs) stack
   | val < 0 = Left "Error: invalid jump value"
   | val > length xs = Left "Error: invalid jump value"
   | otherwise = exec env arg (Prelude.drop val xs) stack
+exec env arg (Define str:xs) stack = case Stack.pop stack of
+    (Nothing, _) -> Left "Error: stack is empty"
+    (Just val, stack1) -> exec (env ++ [(str, val)]) arg xs stack1
 exec _ _ (Ret : _) stack = case Stack.top stack of
     Just x -> Right x
     Nothing -> Left "Error: stack is empty"

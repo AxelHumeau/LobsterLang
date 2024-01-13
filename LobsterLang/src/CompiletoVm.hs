@@ -50,9 +50,7 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         --             value = case (decodeOrFail (snd (getString (fromIntegral (val :: Int32) :: Int) remfile [])) :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32))
         --                 Left _ -> (IntVal 0)
         --                 Right (rmf, _, val) -> fst getValue rmf -- recupéré la value du symbole
-        --             remf = case (decodeOrFail (snd (getString (fromIntegral (val :: Int32) :: Int) remfile [])) :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32))
-        --                 Left _ -> remfile
-        --                 Right (rmf, _, val) -> (snd (getValue)) -- recupéré la ByteString restante
+        --             remf = (snd (getValue)) -- recupéré la ByteString restante
         Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add)])
@@ -68,12 +66,12 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         Compiler.And -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.And)])
         Compiler.Or ->convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Or)])
         Compiler.Not -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Not)])
-        Compiler.ToStr -> convert remainingfile (env, arg, inst)
-        Compiler.Apnd -> convert remainingfile (env, arg, inst)
-        Compiler.RemAllOcc -> convert remainingfile (env, arg, inst)
-        Compiler.Get -> convert remainingfile (env, arg, inst)
+        Compiler.ToStr -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.ToString)])
+        Compiler.Apnd -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Append)])
+        Compiler.RemAllOcc -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.RmOcc)])
+        Compiler.Get -> convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Get)])
         Compiler.Neg -> convert remainingfile (env, arg, inst)
-        Compiler.PushList _ _ -> convert remainingfile (env, arg, inst)
+        Compiler.PushList _ _ -> convert remainingfile (env, arg, inst) -- Todo 
         _ -> convert remainingfile (env, arg, inst)
 
 
@@ -82,3 +80,11 @@ getString 0 byteString str = (str, byteString)
 getString nbytes byteString s = case (decodeOrFail byteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Char)) of
     Right (remainingfile, _, a) -> getString (nbytes - 1) remainingfile (s ++ [a])
     Left _ -> (s, byteString)
+
+-- getDefinedValue :: Int -> BIN.ByteString -> Value -> (Value, BIN.ByteString)
+-- getDefinedValue 0 byteString value = (value, byteString)
+-- getDefinedValue n byteString (IntVal x) = (Intval x, byteString)
+-- getDefinedValue n byteString (BoolVal x) = (BoolVal x, byteString)
+-- getDefinedValue n byteString (CharVal x) = (CharVal x, byteString)
+-- getDefinedValue n byteString (StringVal x) = (StringVal x, byteString)
+-- getDefinedValue n byteString ()
