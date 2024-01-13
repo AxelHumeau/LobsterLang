@@ -204,7 +204,7 @@ parseInt = Parser f
         f pos s = runParser parseUInt pos s
 
 parseWhiteSpace :: Parser [Char]
-parseWhiteSpace = parseMany (parseAnyChar "\n\t ")
+parseWhiteSpace = parseMany (parseAnyChar "\n\t " <|> parseComment)
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
@@ -468,6 +468,13 @@ parseCond = parseCmpString "if" *> Parser parseIf
                         Left err -> Left err
                         Right (res, s', pos') -> Right (res, s', pos')
                     Right (res, s', pos') -> Right (res, s', pos')
+
+parseComment :: Parser Char
+parseComment = parseChar '#' *> Parser f
+    where
+        f :: Position -> String -> Either String (Char, String, Position)
+        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, 0))
+        f (row, col) (x:xs) = f (row, col + 1) xs
 
 parseLobster :: Parser [AST.Ast]
 parseLobster = parseSome (parseWhiteSpace *> parseAst)
