@@ -27,6 +27,7 @@ module Parse (
     parseValue,
     parseLobster,
     parseAnyString,
+    parseCmpString,
     parseDefineValue,
     parseUnaryOperation,
     parseProduct,
@@ -38,8 +39,8 @@ module Parse (
     parseWhiteSpace,
     errorParsing,
     parseDefineFn,
-    parseCond,
-    parseCmpString
+    parseLambda,
+    parseCond
 ) where
 
 import qualified AST
@@ -289,6 +290,7 @@ parseValue = parseWhiteSpace *> (
                                  parseWhiteSpace *> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <* parseWhiteSpace
                                  <|> AST.Value <$> parseElem parseInt
                                  <|> parseBool
+                                 <|> parseSymbol
                                 )
 
 parseListElem :: Parser a -> Parser [a]
@@ -401,19 +403,27 @@ parseUnaryOperation = Parser f
                 Left err' -> Left err'
                 Right (res', s'', pos'') -> Right (AST.Call res [res'], s'', pos'')
 
+parseSymbol :: Parser AST.Ast
+parseSymbol = do
+                name <- parseString
+                args <- optional (parseWhiteSpace *> parseList parseAst
+                            >>= \res -> return $ AST.Symbol name (Just res))
+                return $ fromMaybe (AST.Symbol name Nothing) args
+
 -- | Return a Parser that parse a SExpr
 parseAst :: Parser AST.Ast
 parseAst = parseWhiteSpace *>
         (
-            parseDefineFn
+        parseDefineFn
         <|> parseCond
         <|> parseDefineValue
-        <|> parseExpr
+        <|> parseLambda
         <|> parseBool
+        <|> parseExpr
         <|> parseUnaryOperation
         <|> parseAstString
         <|> parseValue
-        <|> parseAstString
+        <|> parseSymbol
         )
 
 parseDefineFn :: Parser AST.Ast
@@ -425,6 +435,11 @@ parseDefineFn = parseCmpString "fn" *> (Parser defineFn)
             Right (res, s', pos') -> case runParser parseFunctionValue pos' s' of
                 Left err -> Left err
                 Right (res', s'', pos'') -> Right (AST.Define res res', s'', pos'')
+
+parseLambda :: Parser AST.Ast
+parseLambda = lambda *> parseFunctionValue
+    where
+        lambda = parseCmpString "lambda" <|> parseAnyString "λ"
 
 parseFunctionValue :: Parser AST.Ast
 parseFunctionValue = Parser parseParams
