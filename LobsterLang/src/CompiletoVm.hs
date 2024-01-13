@@ -36,6 +36,9 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         PushSym _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
             Right (remfile, _, byteToRead) -> convert (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (env, arg, inst ++ [PushEnv (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))])
+        Compiler.PushArg _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> return ([], [], [])
+            Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
         Compiler.Jump _-> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return ([], [], [])
             Right (remfile, _, val) -> convert remfile (env, arg, inst ++ [Vm.Jump (fromIntegral (val :: Int32) :: Int)])
@@ -53,7 +56,6 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         --                 Right (rmf, _, val) -> fst getValue rmf -- recupéré la value du symbole
         --             remf = (snd (getValue)) -- recupéré la ByteString restante
             ----------------------------------------------------------------
-        Compiler.Fnv _ _ _ _ _ _-> convert remainingfile (env, arg, inst) -- TODO:
         Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
