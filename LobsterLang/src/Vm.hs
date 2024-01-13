@@ -148,7 +148,7 @@ instance Eq Operator where
 data Instruction = Push Value
                 | PushArg Int
                 | PushEnv String
-                | PutArg Value
+                | PutArg
                 | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
@@ -161,7 +161,7 @@ instance Show Instruction where
     show (Push val) = "Push " ++ show val
     show (PushArg x) = "PushArg " ++ show x
     show (PushEnv x) = "PushEnv " ++ show x
-    show (PutArg v) = "PutArg " ++ show v
+    show (PutArg) = "PutArg"
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
@@ -357,7 +357,7 @@ exec env arg (Call : xs) stack = case Stack.pop stack of
                     (Just v, stack3) -> exec env arg (Call:xs)
                         (Stack.push
                             (Stack.push stack3 (IntVal (nb' - 1)))
-                            (Function (PutArg v:body) (nb - 1)))
+                            (Function (Push v:PutArg:body) (nb - 1)))
                     (Nothing, _) -> Left "Error: stack is empty"
             (_, _) -> Left "Error: stack is invalid for a function call"
         (Just a, _) -> Left ("Error: not an Operation or a function " ++ show a)
@@ -381,7 +381,9 @@ exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Just (Function func nb) -> exec env arg (Push (Function func nb):xs) stack
     Just (ListVal list) -> exec env arg (Push (ListVal list):xs) stack
 exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
-exec env arg (PutArg val:xs) stack = exec env (arg ++ [val]) xs stack
+exec env arg (PutArg:xs) stack = case Stack.pop stack of
+    (Nothing, _) -> Left "Error: stack is empty"
+    (Just val, stack1) -> exec env (arg ++ [val]) xs stack1
 exec env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = Left "Error: no jump possible"
   | Prelude.null stack = Left "Error: stack is empty"
