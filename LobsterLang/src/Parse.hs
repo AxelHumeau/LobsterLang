@@ -359,7 +359,7 @@ parseCmpString s = Parser (f s)
         f :: String -> Position -> String -> Either String (String, String, Position)
         f str pos s' = case runParser parseString pos s' of
             Left err -> Left err
-            Right (res, s'', pos') -> if str == res then Right (res, s'', pos') else Left (errorParsing pos')
+            Right (res, s'', pos') -> if str == res then Right (res, s'', pos') else Left (errorParsing pos)
 
 -- | Return a Parser that parse a Bool (#f or #t)
 parseBool :: Parser AST.Ast
@@ -473,8 +473,8 @@ parseComment :: Parser Char
 parseComment = parseChar '#' *> Parser f
     where
         f :: Position -> String -> Either String (Char, String, Position)
-        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, 0))
-        f (row, col) (x:xs) = f (row, col + 1) xs
+        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, col))
+        f (row, col) (_:xs) = f (row, col + 1) xs
 
 parseLobster :: Parser [AST.Ast]
 parseLobster = parseSome (parseWhiteSpace *> parseAst)
