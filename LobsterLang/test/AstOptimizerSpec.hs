@@ -159,3 +159,7 @@ spec = do
             optimizeAst [Variable "a" (Value 5) 0] [Call "-" [Value 5, Value 8], Call "+" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Value (-3))), Right (Result (Call "+" [Symbol "a" Nothing, Value 8]))]
         it "Define then call" $ do
             optimizeAst [] [Define "a" (Value 5), Call "-" [Symbol "a" Nothing, Value 8]] False `shouldBe` [Right (Result (Define "a" (Value 5))), Right (Result (Call "-" [Symbol "a" Nothing, Value 8]))]
+        it "Infinite recursion" $ do
+            optimizeAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] [Symbol "eh" (Just [AST.Value 1])] False `shouldBe` [Right (Warning "Possible infinite recursion" (Symbol "eh" (Just [AST.Value 1])))]
+        it "Infinite recursion in define" $ do
+            optimizeAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] [Define "a" (Symbol "eh" (Just [AST.Value 1]))] False `shouldBe` [Right (Warning "Possible infinite recursion" (Define "a" (Symbol "eh" (Just [AST.Value 1]))))]
