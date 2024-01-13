@@ -155,7 +155,7 @@ spec = do
             `shouldBe` [PushB True, Get]
         -- Len
         it "Check astToInstructions Call built-in \"Len\"" $ do
-            astToInstructions (AST.Call "len" [AST.Boolean True])
+            astToInstructions (AST.Call "~" [AST.Boolean True])
             `shouldBe` [PushB True, Len]
 
         it "Check astToInstructions Define not empty" $ do
