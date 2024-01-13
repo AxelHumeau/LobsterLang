@@ -80,18 +80,20 @@ spec = do
             runParser (parseElem parseString) (0,0) "hello la " `shouldBe` Right ("hello", "la ", (0,6))
         it "Check parseValue Success" $ do
             runParser parseValue (0,0) "432           la " `shouldBe` Right (AST.Value 432, "la ", (0,14))
-        it "Check parseList with parseInt Success" $ do
-            runParser (parseList parseInt) (0,0) "(1 2 3   4 5)" `shouldBe` Right ([1, 2 ,3 , 4, 5], "", (0, 13))
-        it "Check parseList with parseInt Failure (without a number inside)" $ do
-            runParser (parseList parseInt) (0,0) "(1 2 3  d 4 5) (0,0) " `shouldBe` Left (errorParsing (0,8))
-        it "Check parseList with parseInt Failure (without a ending ')')" $ do
-            runParser (parseList parseInt) (0,0) "(1 2 3  4 5 " `shouldBe` Left (errorParsing (0,12))
-        it "Check parseList with parseInt Failure (without a starting '(')" $ do
-            runParser (parseList parseInt) (0,0) "1 2 3  4 5)" `shouldBe` Left (errorParsing (0,0))
-        it "Check parseList with parseString Success" $ do
-            runParser (parseList parseString) (0,0) "(buenos owow k ye    )1 2 3  4 5)" `shouldBe` Right (["buenos", "owow", "k", "ye"], "1 2 3  4 5)", (0, 22))
+        it "Check parseList String Success" $ do
+            runParser (parseList parseString) (0,0) "(| a,  b ,c, d   |)" `shouldBe` Right(["a", "b", "c", "d"], "", (0,19))
+        it "Check parseList Error missing comma" $ do
+            runParser (parseList parseString) (0,0) "(| a b |)" `shouldBe` Left "Error on parsing on '0' '5'"
+        it "Check parseList Error end with comma" $ do
+            runParser (parseList parseString) (0,0) "(|a, |)" `shouldBe` Left "Error on parsing on '0' '5'"
+        it "Check parseList Error starting with comma" $ do
+            runParser (parseList parseString) (0,0) "(|,a|)" `shouldBe` Left "Error on parsing on '0' '2'"
+        it "Check parseList Error missing starting bracket" $ do
+            runParser (parseList parseString) (0,0) "a, b|)" `shouldBe` Left "Error on parsing on '0' '0'"
+        it "Check parseList Error missing ending bracket" $ do
+            runParser (parseList parseString) (0,0) "(|a, b" `shouldBe` Left "Error on parsing on '0' '6'"
         it "Check parseList with parseString Failure" $ do
-            runParser (parseList parseString) (0,0) "(buenos 3 owow k ye    )1 2 3  4 5)" `shouldBe` Left (errorParsing (0,8))
+            runParser (parseList parseString) (0,0) "(|buenos, 3, owow, k, ye    |)" `shouldBe` Left (errorParsing (0,10))
         it "Check parseBool true Success" $ do
             runParser parseBool (0,0) "true lp" `shouldBe` Right (AST.Boolean True, "lp", (0,5))
         it "Check parseBool false Success" $ do
@@ -176,9 +178,9 @@ spec = do
             runParser parseString (0,0) "_Lob3ster*" `shouldBe` Right ("_Lob3ster","*",(0,9))
         it "Check parseMany Success" $ do
             runParser (parseMany (parseChar ' ')) (0,0) " p" `shouldBe` Right (" ","p",(0,1))
-        it "Check parseUnaryOperation Success" $ do
-            runParser parseUnaryOperation (0,0) "! true" `shouldBe` Right (AST.Call "!" [AST.Boolean True],"",(0,6))
-        it "Check parseUnaryOperation Failure (incorrect AST)" $ do
-            runParser parseUnaryOperation (0,0) "! *" `shouldBe` Left (errorParsing (0,2))
-        it "Check parseUnaryOperation Failure (missing operator)" $ do
-            runParser parseUnaryOperation (0,0) "error" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseExpr Unary Operation Success" $ do
+            runParser parseExpr (0,0) "! true" `shouldBe` Right (AST.Call "!" [AST.Boolean True],"",(0,6))
+        it "Check parseExpr Unary Operation Failure (incorrect AST)" $ do
+            runParser parseExpr (0,0) "! *" `shouldBe` Left (errorParsing (0,2))
+        it "Check parseExpr Unary Operation Failure (missing operator)" $ do
+            runParser parseExpr (0,0) "error" `shouldBe` Right (AST.Symbol "error" Nothing, "", (0, 5))
