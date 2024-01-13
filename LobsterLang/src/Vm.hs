@@ -151,6 +151,7 @@ data Instruction = Push Value
                 | JumpIfTrue Int
                 | Jump Int
                 | Define String
+                | PushList Int
                 | Ret
 
 instance Show Instruction where
@@ -164,6 +165,7 @@ instance Show Instruction where
     show (Jump x) = "Jump " ++ show x
     show (Define x) = "Define " ++ show x
     show Ret = "Ret"
+    show (PushList x) = "PushList " ++ show x
 
 instance Ord Instruction where
     compare inst1 inst2 = compare (show inst1) (show inst2)
@@ -323,6 +325,12 @@ isInEnv s (xs:as)
     | fst xs /= s = isInEnv s as
 isInEnv _ _ = Nothing
 
+createList :: Int -> Stack -> [Value] -> (Stack, [Value])
+createList 0 stack val = (stack, val)
+createList n stack val = case Stack.pop stack of
+    (Nothing, _) -> (stack, val)
+    (Just x, stack1) -> createList (n - 1) stack1 (val ++ [x])
+
 exec :: Env -> Arg -> Inst -> Stack -> Either String Value
 exec _ _ (Call : _) [] = Left "Error: stack is empty"
 exec env arg (Call : xs) stack = case Stack.pop stack of
@@ -350,6 +358,10 @@ exec env arg (PushArg x:xs) stack
     | x < 0 = Left "Error index out of range"
     | x >= length arg = Left "Error: index out of range"
     | otherwise = exec env arg xs (Stack.push stack (arg !! x))
+exec env arg (PushList x:xs) stack
+    | x < 0 = Left "Error: index out of range"
+    | x > length stack = Left "Error: index out of range"
+    | otherwise = exec env arg xs ([(ListVal (snd (createList x stack [])))] ++ (fst (createList x stack [])))
 exec [] _ (PushEnv _:_) _ = Left "Error: no Env"
 exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Nothing -> Left "Error: not in environment"
