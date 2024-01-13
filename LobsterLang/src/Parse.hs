@@ -187,7 +187,7 @@ parseInt = Parser f
         f pos s = runParser parseUInt pos s
 
 parseWhiteSpace :: Parser [Char]
-parseWhiteSpace = parseMany (parseAnyChar "\n\t ")
+parseWhiteSpace = parseMany (parseAnyChar "\n\t " <|> parseComment)
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
@@ -322,7 +322,7 @@ parseAnyChar s = Parser (f s)
                     _ -> head xs
 
 parseAstList :: Parser AST.Ast
-parseAstList = AST.List <$> parseList parseAst "[" "]"
+parseAstList = AST.List <$> parseList parseAst "[|" "|]"
 
 -- | Parse a specific String
 parseAnyString :: String -> Parser String
@@ -384,8 +384,8 @@ parseFunctionValue = parseList parseString "(|" "|)"
 parseBracket :: Parser AST.Ast
 parseBracket = parseStart *> parseAst <* parseEnd
     where
-        parseEnd = parseWhiteSpace *> parseChar '}' <* parseWhiteSpace
-        parseStart = parseWhiteSpace *> parseChar '{' <* parseWhiteSpace
+        parseEnd = parseWhiteSpace *> parseAnyString "|}" <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseAnyString "{|" <* parseWhiteSpace
 
 parseCond :: Parser AST.Ast
 parseCond = do _ <- parseCmpString "if"
@@ -417,6 +417,14 @@ parseAst = parseWhiteSpace *>
         <|> parseValue
         <|> parseSymbol
         )
+
+parseComment :: Parser Char
+parseComment = parseChar '#' *> Parser f
+    where
+        f :: Position -> String -> Either String (Char, String, Position)
+        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, col))
+        f (row, col) "" = Right ('\n', "", (row, col + 1))
+        f (row, col) (_:xs) = f (row, col + 1) xs
 
 parseLobster :: Parser [AST.Ast]
 parseLobster = parseMany (parseWhiteSpace *> parseAst)

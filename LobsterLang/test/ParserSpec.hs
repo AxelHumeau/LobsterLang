@@ -9,7 +9,7 @@ module ParserSpec where
 
 import Test.Hspec
 import Parse
-import Parse (parseExpr, parseDefineValue, errorParsing, parseBool, parseLobster, parseString, parseMany)
+import Parse ()
 import qualified AST
 import AST (Ast(Value))
 
@@ -99,7 +99,7 @@ spec = do
         it "Check parseBool false Success" $ do
             runParser parseBool (0,0) "false lp" `shouldBe` Right (AST.Boolean False, "lp", (0,6))
         it "Check parseBool Failure" $ do
-            runParser parseBool (0,0) "#tlp" `shouldBe` Left (errorParsing (0,0))
+            runParser parseBool (0,0) "#tlp" `shouldBe` Left (errorParsing (0,5))
         it "Check parseExpr Simple Addition Success" $ do
             runParser parseExpr (0,0) "3 + 5" `shouldBe` Right (AST.Call "+" [AST.Value 3,AST.Value 5],"",(0,5))
         it "Check parseExpr Simple Multiplication Success" $ do
