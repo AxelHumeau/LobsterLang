@@ -97,6 +97,10 @@ data Operator = Add
               | Or
               | Xorb
               | Not
+              | ToString
+              | Get
+              | Append
+              | RmOcc
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -116,6 +120,8 @@ instance Show Operator where
     show Or = "||"
     show Xorb = "^^"
     show Not = "!"
+    show ToString = "@"
+    show Get = "!!"
 
 instance Eq Operator where
     Add == Add = True
@@ -269,7 +275,36 @@ makeOperation Not stack = case Stack.pop stack of
         | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
         | otherwise -> Right (Stack.push stack1 (BoolVal False))
     (Nothing, _) -> Left "Error : Not need One arguments"
-
+makeOperation ToString stack = case Stack.pop stack of
+    (Just (IntVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (BoolVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (CharVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (StringVal x), stack1) -> Right (Stack.push stack1 (StringVal x))
+    (Just _, _) -> Left "Error : Cannot convert to string"
+    (Nothing, _) -> Left "Error : ToString need One arguments"
+makeOperation Get stack = case Stack.pop stack of
+    (Just (StringVal s), stack1) -> case Stack.pop stack1 of
+        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (StringVal [s !! x]))
+        (Just _, _) -> Left "Error : Wrong arguments for Get"
+        (Nothing, _) -> Left "Error : Get need two arguments"
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (l !! x))
+        (Just _, _) -> Left "Error : Wrong arguments for Get"
+        (Nothing, _) -> Left "Error : Get need two arguments"
+    (Just _, _) -> Left "Error : Cannot Get on not a String nor List"
+    (Nothing, _) -> Left "Error : Get need two arguments"
+makeOperation Append stack = case Stack.pop stack of
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just v, stack2) -> Right (Stack.push stack2 (ListVal (l ++ [v])))
+        (Nothing, _) -> Left "Error : Append need two arguments"
+    (Just _, _) -> Left "Error : Cannot Append on not a List"
+    (Nothing, _) -> Left "Error : Append need two arguments"
+makeOperation RmOcc stack = case Stack.pop stack of
+    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
+        (Just v, stack2) -> Right (Stack.push stack2 (ListVal (filter (/= v) l)))
+        (Nothing, _) -> Left "Error : RmOcc need two arguments"
+    (Just _, _) -> Left "Error : Cannot RmOcc on not a List"
+    (Nothing, _) -> Left "Error : RmOcc need two arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
@@ -307,6 +342,7 @@ exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Just (StringVal str) -> exec env arg  (Push (StringVal str):xs) stack
     Just (Op op) -> exec env arg (Push (Op op):xs) stack
     Just (Function func) -> exec env arg (Push (Function func):xs) stack
+    Just (ListVal list) -> exec env arg (Push (ListVal list):xs) stack
 exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
 exec env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = Left "Error: no jump possible"
