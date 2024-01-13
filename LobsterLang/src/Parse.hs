@@ -445,8 +445,8 @@ parseFunctionValue = Parser parseParams
 parseBracket :: Parser AST.Ast
 parseBracket = parseStart *> parseAst <* parseEnd
     where
-        parseEnd = parseWhiteSpace *> parseChar '}' <* parseWhiteSpace
-        parseStart = parseWhiteSpace *> parseChar '{' <* parseWhiteSpace
+        parseEnd = parseWhiteSpace *> parseAnyString "|}" <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseAnyString "{|" <* parseWhiteSpace
 
 parseCond :: Parser AST.Ast
 parseCond = parseCmpString "if" *> Parser parseIf
@@ -474,6 +474,7 @@ parseComment = parseChar '#' *> Parser f
     where
         f :: Position -> String -> Either String (Char, String, Position)
         f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, col))
+        f (row, col) "" = Right ('\n', "", (row, col + 1))
         f (row, col) (_:xs) = f (row, col + 1) xs
 
 parseLobster :: Parser [AST.Ast]
