@@ -63,9 +63,9 @@ spec = do
         it "Check invalid value binary operation (wrong type 2)" $ do
             evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [])
         it "Check invalid value binary operation (not enough ast parameters)" $ do
-            evalBiValOp (+) [] (Call "+" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '+'", [])
+            evalBiValOp (+) [] (Call "+" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '+'", [])
         it "Check invalid value binary operation (too much ast parameters)" $ do
-            evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '+'", [])
+            evalBiValOp (+) [] (Call "+" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '+'", [])
     describe "Value comparison evaluation tests" $ do
         -- Value comparison operators
         it "Check valid operation ==" $ do
@@ -85,9 +85,9 @@ spec = do
         it "Check invalid value comparison binary operation (wrong type 2)" $ do
             evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '==' is invalid", [])
         it "Check invalid value comparison binary operation (not enough ast parameters)" $ do
-            evalBiCompValOp (==) [] (Call "==" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '=='", [])
+            evalBiCompValOp (==) [] (Call "==" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '=='", [])
         it "Check invalid value comparison binary operation (too much ast parameters)" $ do
-            evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '=='", [])
+            evalBiCompValOp (==) [] (Call "==" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '=='", [])
     describe "Boolean operators evaluation tests" $ do
         -- Boolean operators
         it "Check valid operation &&" $ do
@@ -108,18 +108,24 @@ spec = do
             evalAst [] (Call "!" [AST.Boolean False]) `shouldBe` (Right (Just (AST.Boolean True)), [])
         it "Check valid operation ! (not) 2" $ do
             evalAst [] (Call "!" [AST.Boolean True]) `shouldBe` (Right (Just (AST.Boolean False)), [])
+        it "Check valid operation ! (not) with symbol" $ do
+            evalAst [Variable "a" (Boolean True) 0] (Call "!" [AST.Symbol "a" Nothing]) `shouldBe` (Right (Just (AST.Boolean False)), [Variable "a" (Boolean True) 0])
+        it "Check valid operation ! (not) with eval" $ do
+            evalAst [] (Call "!" [Call "&&" [AST.Boolean True, AST.Boolean True]]) `shouldBe` (Right (Just (AST.Boolean False)), [])
         it "Check invalid operation ! (not)" $ do
             evalAst [] (Call "!" [AST.Boolean True, AST.Boolean False]) `shouldBe` (Left "Invalid number of parameter for unary operator '!'", [])
         it "Check invalid operation ! (not) 2" $ do
             evalAst [] (Call "!" [AST.Value 5]) `shouldBe` (Left "Parameter of unary operator '!' isn't a boolean", [])
+        it "Check invalid operation ! (not) with symbol" $ do
+            evalAst [Variable "a" (Value 8) 0] (Call "!" [Symbol "a" Nothing]) `shouldBe` (Left "Parameter of unary operator '!' isn't a boolean", [Variable "a" (Value 8) 0])
         it "Check invalid value comparison binary operation (wrong type)" $ do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Boolean True, AST.Value 8]) `shouldBe` (Left "One or more parameters of binary operator '&&' is invalid", [])
         it "Check invalid value comparison binary operation (wrong type 2)" $ do
             evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Boolean False]) `shouldBe` (Left "One or more parameters of binary operator '&&' is invalid", [])
         it "Check invalid value comparison binary operation (not enough ast parameters)" $ do
-            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8]) `shouldBe` (Left "Not enough parameter for binary operator '&&'", [])
+            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8]) `shouldBe` (Left "Not enough parameters for binary operator '&&'", [])
         it "Check invalid value comparison binary operation (too much ast parameters)" $ do
-            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameter for binary operator '&&'", [])
+            evalBiBoolOp (&&) [] (Call "&&" [AST.Value 8, AST.Value 9, AST.Value 3]) `shouldBe` (Left "Too much parameters for binary operator '&&'", [])
     describe "Define and function evaluation tests" $ do
         -- Check Define
         it "Check unknown variable" $ do
@@ -134,6 +140,8 @@ spec = do
             evalAst [Variable "foo" (AST.Value 1) 0, ScopeBegin 0] (AST.Symbol "foo" Nothing) `shouldBe` (Right (Just (AST.Value 1)), [Variable "foo" (AST.Value 1) 0, ScopeBegin 0])
         it "Check variable usage 2" $ do
             evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0] (AST.Symbol "bar" Nothing) `shouldBe` (Right (Just (AST.Value 6)), [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
+        it "Check invalid variable usage" $ do
+            evalAst [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0] (AST.Symbol "bar" (Just [Value 1])) `shouldBe` (Left "Symbol 'bar' isn't a function", [Variable "bar" (Call "+" [AST.Value 1, AST.Value 5]) 0, ScopeBegin 0])
         it "Check invalid function" $ do
             evalAst [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0] (Symbol "foo" (Just [AST.Value 5])) `shouldBe` (Left "One or more parameters of binary operator '+' is invalid", [Variable "foo" (FunctionValue ["x"] (Call "+" [AST.Symbol "x" Nothing, AST.Boolean True]) Nothing) 0, ScopeBegin 0])
         it "Check basic function definition" $ do
@@ -188,10 +196,22 @@ spec = do
             evalAst [] (AST.Call "!!" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value 3]) `shouldBe` (Left "Index out of range", [])
         it "Check bad index list 2" $ do
             evalAst [] (AST.Call "!!" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value (-1)]) `shouldBe` (Left "Index out of range", [])
+        it "Index wrong type" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.String "abc"]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index wrong type 2" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.Boolean True]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index wrong type 3" $ do
+            evalAst [] (Call "!!" [AST.List [AST.Value (-1)], AST.FunctionValue [] (AST.Value 1) Nothing]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list" $ do
+            evalAst [] (Call "!!" [AST.FunctionValue [] (AST.Value 1) Nothing, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list 2" $ do
+            evalAst [] (Call "!!" [AST.Boolean True, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
+        it "Index on not a list 3" $ do
+            evalAst [] (Call "!!" [AST.Value 0, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
         it "Check length empty list" $ do
-            evalAst [] (Call "len" [AST.List []]) `shouldBe` (Right (Just (AST.Value 0)), [])
+            evalAst [] (Call "~" [AST.List []]) `shouldBe` (Right (Just (AST.Value 0)), [])
         it "Check non empty list" $ do
-            evalAst [] (Call "len" [AST.List [AST.Value 5, AST.String "blegh"]]) `shouldBe` (Right (Just (AST.Value 2)), [])
+            evalAst [] (Call "~" [AST.List [AST.Value 5, AST.String "blegh"]]) `shouldBe` (Right (Just (AST.Value 2)), [])
         it "Check append" $ do
             evalAst [] (Call "++" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value 8]) `shouldBe` (Right (Just (AST.List [AST.Value 5, AST.String "blegh", AST.Value 8])), [])
         it "Check remove occurence" $ do
@@ -202,9 +222,28 @@ spec = do
             evalAst [] (Call "--" [AST.List [], AST.Value 5]) `shouldBe` (Right (Just (AST.List [])), [])
         it "Check remove occurence 3" $ do
             evalAst [] (Call "--" [AST.List [AST.Value 5, AST.Value 5, AST.Value 5, AST.Value 5], AST.Value 5]) `shouldBe` (Right (Just (AST.List [])), [])
+    describe "String operations tests" $ do
+        it "Concatenation" $ do
+            evalAst [] (Call "+" [AST.String "Hello ", AST.String "World"]) `shouldBe` (Right (Just (AST.String "Hello World")), [])
+        it "Concatenation 2" $ do
+            evalAst [] (Call "+" [AST.String "", AST.String "World"]) `shouldBe` (Right (Just (AST.String "World")), [])
+        it "Concatenation 3" $ do
+            evalAst [] (Call "+" [AST.String "World", AST.String ""]) `shouldBe` (Right (Just (AST.String "World")), [])
+        it "Concatenation 4" $ do
+            evalAst [] (Call "+" [AST.String "", AST.String ""]) `shouldBe` (Right (Just (AST.String "")), [])
+        it "Index" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value 1]) `shouldBe` (Right (Just (AST.String "b")), [])
+        it "Index out of range" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value 3]) `shouldBe` (Left "Index out of range", [])
+        it "Index out of range 2" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.Value (-1)]) `shouldBe` (Left "Index out of range", [])
+        it "Index wrong type" $ do
+            evalAst [] (Call "!!" [AST.String "abc", AST.List [AST.Value (-1)]]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
     describe "Advanced Ast evaluation tests" $ do
         -- Advanced tests
         it "Check factorial definition" $ do
             evalAst [] (Define "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing)) `shouldBe` (Right Nothing, [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0])
         it "Check factorial usage" $ do
             evalAst [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0] (Symbol "fact" (Just [AST.Value 6])) `shouldBe` (Right (Just (AST.Value 720)), [Variable "fact" (FunctionValue ["x"] (Cond (Call "==" [AST.Value 0, AST.Symbol "x" Nothing]) (AST.Value 1) (Just (Call "*" [AST.Symbol "x" Nothing, AST.Symbol "fact" (Just [Call "-" [AST.Symbol "x" Nothing, AST.Value 1]])]))) Nothing) 0])
+        it "Infinite recursion" $ do
+            evalAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] (Symbol "eh" (Just [AST.Value 1])) `shouldBe` (Left "Recursion limit reached", [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0])

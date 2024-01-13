@@ -22,35 +22,41 @@ module Parse (
     parseSign,
     parseDigit,
     parseBool,
-    parseSExpr,
-    parseSymbol,
+    parseAst,
     parseElem,
     parseValue,
-    parseLisp,
+    parseLobster,
     parseAnyString,
-    parseSpace,
-    parseLine,
-    interpretateLisp,
-    -- parseTuple,
+    parseCmpString,
+    parseDefineValue,
+    parseProduct,
+    parseSum,
+    parseExpr,
+    parseTrue,
+    parseFalse,
+    parseAstString,
+    parseWhiteSpace,
+    errorParsing,
+    parseDefineFn,
+    parseLambda,
+    parseCond
 ) where
 
-import SExpr
-
-import Control.Applicative (Alternative (..))
-import qualified AstEval
 import qualified AST
-import qualified Scope
-import GHC.IO.SubSystem (IoSubSystem(IoPOSIX))
+import Control.Applicative
+import Data.Maybe
 
-type Col = Int
-type Row = Int
 type Position = (Int, Int)
 
 data Parser a = Parser {
     runParser :: Position -> String -> Either String (a, String, Position)
-
-
 }
+
+data Token =  Number Int
+            | Sym String
+            | Identifier String
+    deriving(Show, Eq)
+
 
 -- | Instance Functor of the data Parser
 instance Functor Parser where
@@ -64,7 +70,7 @@ instance Functor Parser where
 
 -- | Instance Applicative of the data Parser
 instance Applicative Parser where
-    -- pure result = Parser (\_ -> Left (result, "",))
+    pure result = Parser (\pos s -> Right (result, s, pos))
 
     (<*>) parserA parserB =
         Parser
@@ -99,6 +105,15 @@ instance Monad Parser where
                 Right (res, s', pos') -> runParser (b res) pos' s'
         )
 
+errorParsing :: (Int, Int) -> String
+errorParsing (row, col) = "Error on parsing on '" ++ show row ++ "' '" ++ show col ++ "'"
+
+startCharacter :: String
+startCharacter = ['a'..'z'] ++ ['A'..'Z'] ++ "_"
+
+lobsterCharacter :: String
+lobsterCharacter = startCharacter ++ ['0'..'9']
+
 -- | Parse a character c
 -- Takes the character that need to be parsed
 -- Returns a data Parser that contain the character and the rest of the string
@@ -106,9 +121,13 @@ parseChar :: Char -> Parser Char
 parseChar c = Parser (f c)
     where
         f :: Char -> Position -> String -> Either String (Char, String, Position)
-        f '\n' (row, col) (x:xs) = if '\n' == x then Right ('\n', xs, (row + 1, 0)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f char (row, col) (x:xs) = if char == x then Right (char, xs, (row, col + 1)) else Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
-        f _ (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f '\n' (row, col) (x:xs)
+            | x == '\n' = Right ('\n', xs, (row + 1, 0))
+            | otherwise = Left (errorParsing (row, col))
+        f char (row, col) (x:xs)
+            | x == char = Right (char, xs, (row, col + 1))
+            | otherwise = Left (errorParsing (row, col))
+        f _ (row, col) _ = Left (errorParsing (row, col))
 
 -- | Parse with the first or the second parser
 -- Takes two parsers
@@ -120,25 +139,13 @@ parseOr parserA parserB = parserA <|> parserB
 -- Takes two parsers
 -- Returns either the first parser then use result for the second parser
 parseAnd :: Parser a -> Parser b -> Parser (a, b)
-parseAnd parserA parserB = Parser (f parserA parserB)
-    where
-        f :: Parser a -> Parser b -> Position -> String -> Either String ((a, b), String, Position)
-        f pA pB pos s = case runParser pA pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> case runParser pB pos' s' of
-                Left err -> Left err
-                Right (res', s'', pos'') -> Right ((res, res'), s'', pos'')
+parseAnd parserA parserB = parserA >>= \resA -> parserB >>= \resB -> return (resA, resB)
 
 -- | Parse with function after the two parsers
--- Takes two parsers and a function
+-- Takes two parsers and a fh (\x _ -> x) unction
 -- Returns the result of the function with the result of the parseAnd
 parseAndWith :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
-parseAndWith f' parserA parseB = Parser (f f' parserA parseB)
-    where
-    f :: (a -> b -> c) -> Parser a -> Parser b -> Position -> String -> Either String (c, String, Position)
-    f f'' pA pB pos s = case runParser (parseAnd pA pB) pos s of
-        Left err -> Left err
-        Right ((a, b), s', pos') -> Right (f'' a b, s', pos')
+parseAndWith f parserA parserB = parseAnd parserA parserB >>= \(a, b) -> return (f a b)
 
 -- | Parse with a parser
 -- Takes a parser
@@ -161,12 +168,7 @@ parseSome parser = (:) <$> parser <*> parseMany parser
 
 -- | Return a data Parser that parse a UInt
 parseUInt :: Parser Int
-parseUInt = Parser f
-    where
-        f :: Position -> String -> Either String (Int, String, Position)
-        f pos s = case runParser (parseSome parseDigit) pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> Right (read res :: Int, s', pos')
+parseUInt = parseSome parseDigit >>= \value -> return (read value :: Int)
 
 -- | Return a data Parser that parse a '-' or '+'
 parseSign :: Parser Char
@@ -174,10 +176,7 @@ parseSign = parseChar '-' <|> parseChar '+'
 
 -- | Return a data Parser that parse a digit
 parseDigit :: Parser Char
-parseDigit = parseChar '0' <|> parseChar '1' <|> parseChar '2' <|>
-             parseChar '3' <|> parseChar '4' <|> parseChar '5' <|>
-             parseChar '6' <|> parseChar '7' <|> parseChar '8' <|>
-             parseChar '9'
+parseDigit = parseAnyChar ['0'..'9']
 
 -- | Return a data Parser that parse a Int
 parseInt :: Parser Int
@@ -187,38 +186,124 @@ parseInt = Parser f
         f pos ('-':xs) = runParser ((\x -> -x) <$> parseUInt) pos xs
         f pos s = runParser parseUInt pos s
 
--- | Return a data Parser that parse multiple space
-parseSpace :: Parser [Char]
-parseSpace = parseMany (parseChar ' ')
-
-parseLine :: Parser [Char]
-parseLine = parseMany (parseChar '\n')
+parseWhiteSpace :: Parser [Char]
+parseWhiteSpace = parseMany (parseAnyChar "\n\t " <|> parseComment)
 
 -- | Parse with a parser and, if possible with a space
 -- Return a Parser that parse element with the given parser and, if possible with multiple space
 parseElem :: Parser a -> Parser a
-parseElem parser = parseAndWith (\x _ -> x) parser parseSpace <|> parser
+parseElem parser = parseAndWith const parser parseWhiteSpace <|> parser
+
 
 -- | Return a data Parser that parse a String
 parseString :: Parser String
-parseString = parseSpace *> parseSome (parseAnyChar (['a'..'z'] ++ ['A'..'Z'] ++ "-*/%+#")) <* parseSpace
+parseString = do value <- parseWhiteSpace *> parseSome (parseAnyChar startCharacter)
+                 res <- optional (parseMany (parseAnyChar lobsterCharacter) >>= \res' -> return (value ++ res') <* parseWhiteSpace)
+                 return $ fromMaybe value res
 
 -- | Return a data Parser that parse a String as a Symbol
-parseSymbol :: Parser SExpr
-parseSymbol = Symbol <$> parseElem parseString
+parseAstString :: Parser AST.Ast
+parseAstString = AST.String <$> (parseChar '"' *> parseElem parseString <* parseChar '"')
+
+parseExpr :: Parser AST.Ast
+parseExpr = parseCombinatorOperator
+
+parseCombinatorOperator :: Parser AST.Ast
+parseCombinatorOperator = do res <- parseBoolOperator
+                             res' <- optional (parseWhiteSpace *> parseChar '$'
+                                            >>= \res' -> parseCombinatorOperator
+                                                >>= \res'' -> return $ AST.Call [res'] [res, res''])
+                             return $ fromMaybe res res'
+
+parseBoolOperator :: Parser AST.Ast
+parseBoolOperator = do res <- parseCompOperator
+                       res' <- optional (parseAnyString "&&" <|>
+                                         parseAnyString "||" <|>
+                                         parseAnyString "^^"
+                                            >>= \res' -> parseBoolOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
+
+parseCompOperator :: Parser AST.Ast
+parseCompOperator = do res <- parseSum
+                       res' <- optional (parseWhiteSpace *> parseAnyString "==" <|>
+                                         parseWhiteSpace *> parseAnyString ">=" <|>
+                                         parseWhiteSpace *> parseAnyString "!=" <|>
+                                         parseWhiteSpace *> parseAnyString "<=" <|>
+                                         parseWhiteSpace *> parseAnyString ">" <|>
+                                         parseWhiteSpace *> parseAnyString "<"
+                                            >>= \res' -> parseCompOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
+
+parseSum :: Parser AST.Ast
+parseSum = do res <- parseProduct
+              res' <- optional (parseWhiteSpace *> parseAnyChar "+-"
+                                    >>= \res' -> parseSum
+                                        >>= \res'' -> return $ AST.Call [res'] [res, res''])
+              return $ fromMaybe res res'
+
+parseProduct :: Parser AST.Ast
+parseProduct = do res <- parseListOperator
+                  res' <- optional (parseWhiteSpace *> parseAnyChar "*/%"
+                                    >>= \res' -> parseProduct
+                                        >>= \res'' -> return $ AST.Call [res'] [res, res''])
+                  return $ fromMaybe res res'
+
+parseListOperator :: Parser AST.Ast
+parseListOperator = do res <- parseValue
+                       res' <- optional (parseWhiteSpace *> parseAnyString "--" <|>
+                                         parseWhiteSpace *> parseAnyString "++" <|>
+                                         parseWhiteSpace *> parseAnyString "!!"
+                                            >>= \res' -> parseListOperator
+                                                >>= \res'' -> return $ AST.Call res' [res, res''])
+                       return $ fromMaybe res res'
 
 -- | Return a data Parser that parse a Int as a Value
-parseValue :: Parser SExpr
-parseValue = Value <$> parseElem parseInt
+parseValue :: Parser AST.Ast
+parseValue = parseWhiteSpace *> (
+                                 parseWhiteSpace *> parseAnyString "(|" *> parseExpr <* parseAnyString "|)" <* parseWhiteSpace
+                                 <|> AST.Value <$> parseElem parseInt
+                                 <|> parseBool
+                                 <|> parseSymbol
+                                 <|> parseAstString
+                                 <|> parseUnaryOperator
+                                 <|> parseAstList
+                                )
+
+parseUnaryOperator :: Parser AST.Ast
+parseUnaryOperator = parseWhiteSpace *> parseAnyString "!"<|>
+                     parseWhiteSpace *> parseAnyString "@" <|>
+                     parseWhiteSpace *> parseAnyString "~"
+                        >>= \op -> parseValue
+                                        >>= \value -> return $ AST.Call op [value]
+
+parseListElem :: Parser a -> Parser [a]
+parseListElem parserA = Parser (parseFirst parserA)
+    where
+        parseFirst :: Parser a -> Position -> String -> Either String ([a], String, Position)
+        parseFirst parser pos s = case runParser parser pos s of
+            Left _ -> Right ([], s, pos)
+            Right (res, s', pos') -> case parseOthers parser pos' s' of
+                Left err -> Left err
+                Right (res', s'', pos'') -> Right (res : res', s'', pos'')
+        parseOthers :: Parser a -> Position -> String -> Either String ([a], String, Position)
+        parseOthers parser pos s = case runParser (parseChar ',') pos s of
+            Left _ -> Right ([], s, pos)
+            Right (_, s', pos') -> case runParser parser pos' s' of
+                Left err -> Left err
+                Right (res, s'', pos'') -> case parseOthers parser pos'' s'' of
+                    Left err -> Left err
+                    Right (res', s''', pos''') -> Right (res : res', s''', pos''')
 
 -- | Parse a list of element
 -- Return a Parser of list `element` that start with a '(' and end with a ')'
-parseList :: Parser a -> Parser [a]
-parseList parser = parseStart *> parseListValue <* parseEnd
+parseList :: Parser a -> String -> String -> Parser [a]
+parseList parser start end = parseStart *> parseListValue <* parseEnd
     where
-        parseEnd = parseChar ')' <* parseSpace <* parseLine
-        parseListValue = parseSpace *> parseMany (parseElem parser) <* parseSpace
-        parseStart = parseSpace *> parseChar '('
+        parseEnd = parseAnyString end <* parseWhiteSpace
+        parseListValue = parseWhiteSpace *> parseListElem parser <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseAnyString start
 
 -- | Parse any character from a String
 -- Return a Parser that parse every character from a String
@@ -226,7 +311,7 @@ parseAnyChar :: String -> Parser Char
 parseAnyChar s = Parser (f s)
     where
         f :: String -> Position -> String -> Either String (Char, String, Position)
-        f [] (row, col) _ = Left ("Error on parsing on '" ++ show row ++ "' '" ++ show col)
+        f [] (row, col) _ = Left (errorParsing (row, col))
         f (x:xs) pos s' = case parsed of
             Left _ -> runParser (parseAnyChar xs) pos s'
             _ -> parsed
@@ -235,6 +320,9 @@ parseAnyChar s = Parser (f s)
                 c = case xs of
                     [] -> '\0'
                     _ -> head xs
+
+parseAstList :: Parser AST.Ast
+parseAstList = AST.List <$> parseList parseAst "[|" "|]"
 
 -- | Parse a specific String
 parseAnyString :: String -> Parser String
@@ -246,60 +334,97 @@ parseAnyString s = Parser (f s s)
             Right (_, s'', pos') -> f xs str pos' s''
         f [] str pos s' = Right (str, s', pos)
 
+parseCmpString :: String -> Parser String
+parseCmpString s = Parser (f s)
+    where
+        f :: String -> Position -> String -> Either String (String, String, Position)
+        f str pos s' = case runParser parseString pos s' of
+            Left err -> Left err
+            Right (res, s'', pos') -> if str == res then Right (res, s'', pos') else Left (errorParsing pos)
+
 -- | Return a Parser that parse a Bool (#f or #t)
-parseBool :: Parser Bool
-parseBool = parseElem (parseTrue <|> parseFalse)
+parseBool :: Parser AST.Ast
+parseBool = AST.Boolean <$> (parseTrue <|> parseFalse) <* parseWhiteSpace
 
 -- | Return a PArser that parse a True (in lisp -> #t)
 parseTrue :: Parser Bool
-parseTrue = Parser f
-    where
-        f :: Position -> String -> Either String (Bool, String, Position)
-        f pos s = case runParser (parseAnyString "#t") pos s of
-            Left err -> Left err
-            Right (_, s', pos') -> Right (True, s', pos')
+parseTrue = parseCmpString "true" >> return True
 
 -- | Return a PArser that parse a True (in lisp -> #f)
 parseFalse :: Parser Bool
-parseFalse = Parser f
+parseFalse = parseCmpString "false" >> return False
+
+parseDefineValue :: Parser AST.Ast
+parseDefineValue = parseString
+                        >>= \str -> parseChar '='
+                            >> (parseAst >>= \ast -> return $ AST.Define str ast)
+
+parseSymbol :: Parser AST.Ast
+parseSymbol = do
+                name <- parseString
+                args <- optional (parseWhiteSpace *> parseList parseAst "(|" "|)"
+                            >>= \res -> return $ AST.Symbol name (Just res))
+                return $ fromMaybe (AST.Symbol name Nothing) args
+
+
+parseDefineFn :: Parser AST.Ast
+parseDefineFn = parseCmpString "fn" *> parseString
+                    >>= \name -> parseFunctionValue
+                        >>= \value -> return $ AST.Define name value
+
+parseLambda :: Parser AST.Ast
+parseLambda = (parseCmpString "lambda" <|> parseAnyString "λ") *> parseFunctionValue
+
+parseFunctionValue :: Parser AST.Ast
+-- parseFunctionValue = Parser parseParams
+parseFunctionValue = parseList parseString "(|" "|)"
+                        >>= \args -> parseBracket
+                            >>= \expr -> return $ AST.FunctionValue args expr Nothing
+
+parseBracket :: Parser AST.Ast
+parseBracket = parseStart *> parseAst <* parseEnd
     where
-        f :: Position -> String -> Either String (Bool, String, Position)
-        f pos s = case runParser (parseAnyString "#f") pos s of
-            Left err -> Left err
-            Right (_, s', pos') -> Right (False, s', pos')
+        parseEnd = parseWhiteSpace *> parseAnyString "|}" <* parseWhiteSpace
+        parseStart = parseWhiteSpace *> parseAnyString "{|" <* parseWhiteSpace
+
+parseCond :: Parser AST.Ast
+parseCond = do _ <- parseCmpString "if"
+               expr <- parseExpr
+               value <- parseBracket
+               res <- optional parseElse
+               return $ AST.Cond expr value res
+    where
+        parseElse = parseCmpString "else" *> Parser p
+            where
+                p :: Position -> String -> Either String (AST.Ast, String, Position)
+                p pos s = case runParser parseCond pos s of
+                    Left _ -> case runParser parseBracket pos s of
+                        Left err -> Left err
+                        Right (res, s', pos') -> Right (res, s', pos')
+                    Right (res, s', pos') -> Right (res, s', pos')
 
 -- | Return a Parser that parse a SExpr
-parseSExpr :: Parser SExpr
-parseSExpr =
-             parseSpace *> parseSymbol <|>
-             parseSpace *> parseValue  <|>
-             List <$> parseList (parseSpace *> parseValue <|> parseSpace *> parseSymbol <|> parseSpace *> parseSExpr) <* parseSpace
+parseAst :: Parser AST.Ast
+parseAst = parseWhiteSpace *>
+        (
+        parseDefineFn
+        <|> parseCond
+        <|> parseDefineValue
+        <|> parseLambda
+        <|> parseBool
+        <|> parseExpr
+        <|> parseAstString
+        <|> parseValue
+        <|> parseSymbol
+        )
 
-parseLisp :: Parser [SExpr]
-parseLisp = parseSome parseSExpr
+parseComment :: Parser Char
+parseComment = parseChar '#' *> Parser f
+    where
+        f :: Position -> String -> Either String (Char, String, Position)
+        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, col))
+        f (row, col) "" = Right ('\n', "", (row, col + 1))
+        f (row, col) (_:xs) = f (row, col + 1) xs
 
--- | Return a Result that contain the evaluation of our Lisp String
--- Takes as parameter the string that need to be evaluated and the Stack (Environment)
-interpretateLisp :: SExpr -> [Scope.ScopeMb] -> Either String (Maybe AST.Ast, [Scope.ScopeMb])
-interpretateLisp value stack = case AstEval.sexprToAst value of
-    Nothing -> Left "Error on evaluation"
-    Just res -> case AstEval.evalAst stack res of
-        (Left err, _) -> Left err
-        (Right res', stack') -> Right (res', stack')
-
-        --         -- Right (Nothing, stack) -> (if stack == new then print "***ERROR" >> exitWith (ExitFailure 84) else inputLoop stack)
---        - Right (res, stack') -> print res >> inputLoop stack'
-        -- Right (_, stack') -> interpretateLisp xs stack' stack
--- interpretateLisp s stack new = case runParser (parseSome parseSExpr) (0, 0) s of
-    -- Left err -> Left err
-    -- Right (res, s', _) -> case AstEval.sexprToAst res of
-        -- Nothing -> Left "Error on evaluation"
-        -- Just value -> case AstEval.evalAst stack value of
-            -- (Nothing, stack') -> (if stack == new then Left "Error on evaluation" else parseLisp s' stack' new)
-            -- (_, stack'') -> parseLisp s' stack'' new
--- parseLisp :: String -> [Scope.ScopeMb] -> (Either String (Maybe AST.Ast), [Scope.ScopeMb])
--- parseLisp s stack = case runParser parseSExpr s of
---     Nothing -> (Left "Input is unparsable", [])
---     Just (res, _) -> case AstEval.sexprToAst res of
---         Nothing -> (Left "Cannot convert input in AST", [])
---         Just value -> AstEval.evalAst stack value
+parseLobster :: Parser [AST.Ast]
+parseLobster = parseMany (parseWhiteSpace *> parseAst)

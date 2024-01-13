@@ -14,32 +14,14 @@ jobs:
   check_style:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Clone Epitech Coding style
-        run: git clone https://github.com/Epitech/coding-style-checker.git
-      - name: Access cloned repository content
-        run: |
-          chmod +x ./coding-style-checker/coding-style.sh
-          ./coding-style-checker/coding-style.sh . .
-          cat coding-style-reports.log
-      - name: Verify coding style
-        run: |
-            error=false
-            while IFS= read -r line; do
-                if [[ $line =~ (MAJOR|MINOR|INFO) ]]; then
-                        IFS=': '
-                        read -r -a array <<< "$line"
-                        echo "::error title=Coding style error:: file:${array[0]}, line:${array[1]}, coding-style:${array[2]}-${array[3]}"
-                        error=true
-                fi
-                done < coding-style-reports.log
-            if [ $error = true ]
-            then
-                exit 1
-            else
-                exit 0
-            fi
+      - uses: actions/checkout@v3
+      - name: Set up HLint
+        uses: haskell-actions/hlint-setup@v2
+      - name: Run HLint
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: '["LobsterLang/src/", "LobsterLang/app"]'
+          fail-on: warning
   check_compilation:
     runs-on: ubuntu-latest
     steps:
