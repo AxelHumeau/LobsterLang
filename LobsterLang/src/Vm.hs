@@ -26,7 +26,7 @@ data Value = IntVal Int
            | StringVal String
            | ListVal [Value]
            | Op Operator
-           | Function Func
+           | Function Func Int
            deriving (Show, Eq, Ord)
 
 instance Num Value where
@@ -145,6 +145,7 @@ instance Eq Operator where
 data Instruction = Push Value
                 | PushArg Int
                 | PushEnv String
+                | PutArg Value
                 | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
@@ -156,6 +157,7 @@ instance Show Instruction where
     show (Push val) = "Push " ++ show val
     show (PushArg x) = "PushArg " ++ show x
     show (PushEnv x) = "PushEnv " ++ show x
+    show (PutArg v) = "PutArg " ++ show v
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
@@ -328,10 +330,21 @@ exec env arg (Call : xs) stack = case Stack.pop stack of
         (Just (Op x), stack1)  -> case makeOperation x stack1 of
                Left err -> Left err
                Right newstack -> exec env arg xs newstack
-        (Just (Function x), stack1) -> case exec env stack1 x [] of
+        (Just (Function body 0), stack1) -> case exec env [] body [] of
                 Left err -> Left err
                 Right val -> exec env arg xs (Stack.push stack1 val)
-        (Just a, _) -> Left ("Error: not an Operation or a function" ++ show a)
+        (Just (Function body nb), stack1) -> case Stack.pop stack1 of
+            (Just (IntVal nb'), stack2)
+                | nb' == 0 -> exec env arg xs (Stack.push stack2 (Function body nb))
+                | nb < nb' -> Left "Error: too much arguments given"
+                | otherwise -> case Stack.pop stack2 of
+                    (Just v, stack3) -> exec env arg (Call:xs)
+                        (Stack.push
+                            (Stack.push stack3 (IntVal (nb' - 1)))
+                            (Function (PutArg v:body) (nb - 1)))
+                    (Nothing, _) -> Left "Error: stack is empty"
+            (_, _) -> Left "Error: stack is invalid for a function call"
+        (Just a, _) -> Left ("Error: not an Operation or a function " ++ show a)
 exec _ [] (PushArg _:_) _ = Left "Error: no Arg"
 exec env arg (PushArg x:xs) stack
     | x < 0 = Left "Error index out of range"
@@ -345,9 +358,10 @@ exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Just (CharVal c) -> exec env arg  (Push (CharVal c):xs) stack
     Just (StringVal str) -> exec env arg  (Push (StringVal str):xs) stack
     Just (Op op) -> exec env arg (Push (Op op):xs) stack
-    Just (Function func) -> exec env arg (Push (Function func):xs) stack
+    Just (Function func nb) -> exec env arg (Push (Function func nb):xs) stack
     Just (ListVal list) -> exec env arg (Push (ListVal list):xs) stack
 exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
+exec env arg (PutArg val:xs) stack = exec env (arg ++ [val]) xs stack
 exec env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = Left "Error: no jump possible"
   | Prelude.null stack = Left "Error: stack is empty"
