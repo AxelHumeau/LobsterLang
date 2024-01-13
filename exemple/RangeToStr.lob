@@ -1,7 +1,7 @@
-fn rangeToStr(| a, b |) {
-    if a >= b {
+fn rangeToStr(| a, b |) {|
+    if a >= b {|
         @ b
-    } else {
+    |} else {|
         @ a + rangeToStr(| a + 1, b |)
-    }
-}
+    |}
+|}
