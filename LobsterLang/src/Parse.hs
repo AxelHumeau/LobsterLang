@@ -29,7 +29,6 @@ module Parse (
     parseAnyString,
     parseCmpString,
     parseDefineValue,
-    parseUnaryOperation,
     parseProduct,
     parseSum,
     parseExpr,
@@ -291,7 +290,15 @@ parseValue = parseWhiteSpace *> (
                                  <|> AST.Value <$> parseElem parseInt
                                  <|> parseBool
                                  <|> parseSymbol
+                                 <|> parseUnaryOperator
                                 )
+
+parseUnaryOperator :: Parser AST.Ast
+parseUnaryOperator = parseWhiteSpace *> parseAnyString "!"<|>
+                     parseWhiteSpace *> parseAnyString "@" <|>
+                     parseWhiteSpace *> parseAnyString "~   "
+                        >>= \op -> parseValue
+                                        >>= \value -> return $ AST.Call op [value]
 
 parseListElem :: Parser a -> Parser [a]
 parseListElem parserA = Parser (parseFirst parserA)
@@ -388,21 +395,6 @@ parseDefineValue = Parser f
                     Left err'' -> Left err''
                     Right (res'', s''', pos''') -> Right (AST.Define res res'', s''', pos''')
 
-parseUnaryOperator :: Parser String
-parseUnaryOperator = parseWhiteSpace *> parseAnyString "!"<|>
-                     parseWhiteSpace *> parseAnyString "@" <|>
-                     parseWhiteSpace *> parseAnyString "~"
-
-parseUnaryOperation :: Parser AST.Ast
-parseUnaryOperation = Parser f
-    where
-        f :: Position -> String -> Either String (AST.Ast, String, Position)
-        f pos s = case runParser parseUnaryOperator pos s of
-            Left err -> Left err
-            Right (res, s', pos') -> case runParser parseAst pos' s' of
-                Left err' -> Left err'
-                Right (res', s'', pos'') -> Right (AST.Call res [res'], s'', pos'')
-
 parseSymbol :: Parser AST.Ast
 parseSymbol = do
                 name <- parseString
@@ -420,7 +412,6 @@ parseAst = parseWhiteSpace *>
         <|> parseLambda
         <|> parseBool
         <|> parseExpr
-        <|> parseUnaryOperation
         <|> parseAstString
         <|> parseValue
         <|> parseSymbol
