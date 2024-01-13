@@ -56,6 +56,8 @@ convert file (env, arg, inst) = case (decodeOrFail file :: Either (BIN.ByteStrin
         --                 Right (rmf, _, val) -> fst getValue rmf -- recupéré la value du symbole
         --             remf = (snd (getValue)) -- recupéré la ByteString restante
             ----------------------------------------------------------------
+        -- nbnamearg -> namearg -> nbinstructions -> inst -> nbvalue -> value
+        -- Compiler.Fnv ->  -- fnv
         Compiler.Call -> convert remainingfile (env, arg, inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (env, arg, inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (env, arg, inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
