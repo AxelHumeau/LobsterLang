@@ -39,7 +39,7 @@ jobs:
         with:
           enable-stack: true
       - name: Install documentation
-        run: apt-get install haskell-platform-doc && apt-get install ghc-doc
+        run: sudo apt-get install haskell-platform-doc && sudo apt-get install ghc-doc
       - name: Create documentation
         run: haddock -ohtml --html LobsterLang/src/*
       - name: Deploy to GitHub Pages
