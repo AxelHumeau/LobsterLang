@@ -79,7 +79,7 @@ data Instruction =
     | Apnd -- ++
     | RemAllOcc -- --
     | Get -- !!
-    | Len -- len
+    | Len -- ~
   deriving (Show, Eq)
 
 instance Enum Instruction where
@@ -221,7 +221,7 @@ astToInstructions (AST.Call "--" args) =
   concatMap astToInstructions args ++ [RemAllOcc]
 astToInstructions (AST.Call "!!" args) =
   concatMap astToInstructions args ++ [Get]
-astToInstructions (AST.Call "len" args) =
+astToInstructions (AST.Call "~" args) =
   concatMap astToInstructions args ++ [Len]
 astToInstructions (AST.Call _ _) = [NoOp]
 astToInstructions (Define symbolName value) =
