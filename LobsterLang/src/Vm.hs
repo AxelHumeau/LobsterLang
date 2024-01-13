@@ -101,6 +101,7 @@ data Operator = Add
               | Get
               | Append
               | RmOcc
+              | Len
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -124,6 +125,7 @@ instance Show Operator where
     show Get = "!!"
     show RmOcc = "--"
     show Append = "++"
+    show Len = "Len"
 
 instance Eq Operator where
     Add == Add = True
@@ -140,6 +142,7 @@ instance Eq Operator where
     Or == Or = True
     Xorb == Xorb = True
     Not == Not = True
+    Len == Len = True
     _ == _ = False
 
 data Instruction = Push Value
@@ -313,6 +316,11 @@ makeOperation RmOcc stack = case Stack.pop stack of
         (Nothing, _) -> Left "Error : RmOcc need two arguments"
     (Just _, _) -> Left "Error : Cannot RmOcc on not a List"
     (Nothing, _) -> Left "Error : RmOcc need two arguments"
+makeOperation Len stack = case Stack.pop stack of
+    (Just (StringVal s), stack1) -> Right (Stack.push stack1 (IntVal (length s)))
+    (Just (ListVal l), stack1) -> Right (Stack.push stack1 (IntVal (length l)))
+    (Just _, _) -> Left "Error : Len no len"
+    (Nothing, _) -> Left "Error : Len need one arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
