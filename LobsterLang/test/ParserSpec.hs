@@ -178,9 +178,9 @@ spec = do
             runParser parseString (0,0) "_Lob3ster*" `shouldBe` Right ("_Lob3ster","*",(0,9))
         it "Check parseMany Success" $ do
             runParser (parseMany (parseChar ' ')) (0,0) " p" `shouldBe` Right (" ","p",(0,1))
-        it "Check parseUnaryOperation Success" $ do
-            runParser parseUnaryOperation (0,0) "! true" `shouldBe` Right (AST.Call "!" [AST.Boolean True],"",(0,6))
-        it "Check parseUnaryOperation Failure (incorrect AST)" $ do
-            runParser parseUnaryOperation (0,0) "! *" `shouldBe` Left (errorParsing (0,2))
-        it "Check parseUnaryOperation Failure (missing operator)" $ do
-            runParser parseUnaryOperation (0,0) "error" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseExpr Unary Operation Success" $ do
+            runParser parseExpr (0,0) "! true" `shouldBe` Right (AST.Call "!" [AST.Boolean True],"",(0,6))
+        it "Check parseExpr Unary Operation Failure (incorrect AST)" $ do
+            runParser parseExpr (0,0) "! *" `shouldBe` Left (errorParsing (0,2))
+        it "Check parseExpr Unary Operation Failure (missing operator)" $ do
+            runParser parseExpr (0,0) "error" `shouldBe` Right (AST.Symbol "error" Nothing, "", (0, 5))
