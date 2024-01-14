@@ -371,7 +371,7 @@ exec depth env arg (Call : xs) stack = case Stack.pop stack of
                             (Function (Push v:PutArg:body) (nb - 1)))
                     (Nothing, _) -> (Left "Error: stack is empty 3", env)
             (_, _) -> (Left "Error: stack is invalid for a function call", env)
-        (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a), env)
+        (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a ++ "stack : " ++ show stack), env)
 exec _ _ [] (PushArg _:_) _ = (Left "Error: no Arg", [])
 exec depth env arg (PushArg x:xs) stack
     | x < 0 = (Left "Error index out of range", env)
@@ -383,7 +383,7 @@ exec depth env arg (PushList x:xs) stack
     | otherwise = exec depth env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
 exec _ [] _ (PushEnv _:_) _ = (Left "Error: no Env", [])
 exec depth env arg (PushEnv x:xs) stack =  case isInEnv x depth env of
-    Nothing -> (Left "Error: not in environment", env)
+    Nothing -> (Left ("Error: not in environment " ++ x ++ " " ++ show depth), env)
     Just (BoolVal b) -> exec depth env arg  (Push (BoolVal b):xs) stack
     Just (IntVal i) -> exec depth env arg  (Push (IntVal i):xs) stack
     Just (CharVal c) -> exec depth env arg  (Push (CharVal c):xs) stack

@@ -5,3 +5,5 @@ fn factorial(| x |) {|
         x * factorial(| x - 1 |)
     |}
 |}
+
+factorial(| 5 |)

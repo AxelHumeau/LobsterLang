@@ -25,6 +25,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.List
+import Debug.Trace (trace)
 
 data CompileConstants = Null
   | MagicNumber deriving (Show, Eq)
@@ -183,7 +184,7 @@ astToInstructions (Symbol symbolName (Just symbolArgs)) =
       map astToInstructions symbolArgs
 astToInstructions (String stringValue) = [PushStr stringValue]
 astToInstructions (List values) =
-  [PushList (length valuesInstructions) valuesInstructions]
+  [PushList (_findAstInstrSize values) valuesInstructions]
   where
     valuesInstructions = map astToInstructions values
 astToInstructions (AST.Call "+" args) =
@@ -231,27 +232,29 @@ astToInstructions (AST.Call "~" args) =
 astToInstructions (AST.Call _ _) = [NoOp]
 astToInstructions (Define symbolName value) =
   let symbolValue = astToInstructions value
-  in [Def symbolName (length symbolValue) symbolValue]
+  in [Def symbolName 1 symbolValue]
 astToInstructions (FunctionValue argsNames funcBody Nothing) =
   [ Fnv
     (length argsNames)
     argsNames
-    (length funcBodyInstructions)
+    nbFuncBodyInstructions
     funcBodyInstructions
     []
     Nothing ]
   where
+    nbFuncBodyInstructions = _findAstInstrSize [funcBody]
     funcBodyInstructions =
       _resolveFunctionPushArgs (astToInstructions funcBody ++ [Ret]) argsNames
 astToInstructions (FunctionValue argsNames funcBody (Just argsValues)) =
   [ Fnv
     (length argsNames)
     argsNames
-    (length funcBodyInstructions)
+    nbFuncBodyInstructions
     funcBodyInstructions
     nbArgsValuesInstructions
     argsValuesInstructions ]
   where
+    nbFuncBodyInstructions = _findAstInstrSize [funcBody]
     funcBodyInstructions =
       _resolveFunctionPushArgs (astToInstructions funcBody ++ [Ret]) argsNames
     argsValuesInstructions =
@@ -267,8 +270,8 @@ astToInstructions (AST.Cond cond trueBlock (Just falseBlock)) =
     condInstructions = astToInstructions cond
     falseBlockInstructions = astToInstructions falseBlock
     trueBlockInstructions =
-      astToInstructions trueBlock ++ [Jump (length falseBlockInstructions)]
-    nbTrueBlockInstructions = length trueBlockInstructions
+      astToInstructions trueBlock ++ [Jump (_findAstInstrSize [falseBlock] + 1)]
+    nbTrueBlockInstructions = _findAstInstrSize [trueBlock] + 1
 astToInstructions (AST.Cond cond trueBlock Nothing) =
   [ Compiler.Cond
     condInstructions
@@ -279,7 +282,7 @@ astToInstructions (AST.Cond cond trueBlock Nothing) =
     condInstructions = astToInstructions cond
     trueBlockInstructions =
       astToInstructions trueBlock
-    nbTrueBlockInstructions = length trueBlockInstructions
+    nbTrueBlockInstructions = _findAstInstrSize [trueBlock] + 1
 
 _showInstruction :: Instruction -> Int -> [Char]
 _showInstruction NoOp _ = "NO_OP\n"
@@ -411,14 +414,52 @@ _showInstruction Len depth =
 
 _resolveFunctionPushArgs :: [Instruction] -> [String] -> [Instruction]
 _resolveFunctionPushArgs [] _ = []
-_resolveFunctionPushArgs [PushSym symbolName args] argsNames =
+_resolveFunctionPushArgs [PushSym symbolName Nothing] argsNames =
   case Data.List.elemIndex symbolName argsNames of
     Just value -> [PushArg value]
-    Nothing -> [PushSym symbolName args]
+    Nothing -> [PushSym symbolName Nothing]
+_resolveFunctionPushArgs [PushSym symbolName (Just args)] argsNames =
+  case Data.List.elemIndex symbolName argsNames of
+    Just value -> [PushArg value]
+    Nothing -> [PushSym symbolName (Just (fmap (`_resolveFunctionPushArgs` argsNames) args))]
+_resolveFunctionPushArgs [Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions
+  (Just falseBlockInstructions)] argsNames = trace (show (_resolveFunctionPushArgs falseBlockInstructions argsNames))
+    [ Compiler.Cond
+    (_resolveFunctionPushArgs condInstructions argsNames)
+    nbTrueBlockInstructions
+    (_resolveFunctionPushArgs trueBlockInstructions argsNames)
+    (Just (_resolveFunctionPushArgs falseBlockInstructions argsNames))]
+_resolveFunctionPushArgs [Compiler.Cond condInstructions
+  nbTrueBlockInstructions trueBlockInstructions Nothing] argsNames =
+    [ Compiler.Cond
+    (_resolveFunctionPushArgs condInstructions argsNames)
+    nbTrueBlockInstructions
+    (_resolveFunctionPushArgs trueBlockInstructions argsNames)
+    Nothing]
+_resolveFunctionPushArgs [PushList nbValuesInstructions valuesInstructions]
+  argsNames =
+  [PushList nbValuesInstructions
+    (fmap (`_resolveFunctionPushArgs` argsNames) valuesInstructions)]
 _resolveFunctionPushArgs [instruction] _ = [instruction]
 _resolveFunctionPushArgs (instruction:instructions) argsNames
   = _resolveFunctionPushArgs [instruction] argsNames
   ++ _resolveFunctionPushArgs instructions argsNames
+
+_findAstInstrSize :: [Ast] -> Int
+_findAstInstrSize [] = 0
+_findAstInstrSize (Value _:xs) = 1 + _findAstInstrSize xs
+_findAstInstrSize (Boolean _:xs) = 1 + _findAstInstrSize xs
+_findAstInstrSize (String _:xs) = 1 + _findAstInstrSize xs
+_findAstInstrSize (Define _ ast:xs) = 1 + _findAstInstrSize [ast] + _findAstInstrSize xs
+_findAstInstrSize (List asts:xs) = 1 + _findAstInstrSize asts + _findAstInstrSize xs
+_findAstInstrSize (Symbol _ Nothing:xs) = 1 + _findAstInstrSize xs
+_findAstInstrSize (Symbol _ (Just asts):xs) = _findAstInstrSize asts + 4 + _findAstInstrSize xs-- push nbGivenArgs, pushSym, Call
+_findAstInstrSize (AST.Call _ asts:xs) = _findAstInstrSize asts + 1 + _findAstInstrSize xs
+_findAstInstrSize (FunctionValue _ ast Nothing:xs) = _findAstInstrSize [ast] + 2 + _findAstInstrSize xs
+_findAstInstrSize (FunctionValue _ ast (Just asts):xs) = _findAstInstrSize asts + 1 + _findAstInstrSize [ast] + 3 + _findAstInstrSize xs
+_findAstInstrSize (AST.Cond astCond astTrue Nothing:xs) = _findAstInstrSize [astCond] + 1 + _findAstInstrSize [astTrue] + _findAstInstrSize xs
+_findAstInstrSize (AST.Cond astCond astTrue (Just astFalse):xs) = _findAstInstrSize [astCond] + 1 + _findAstInstrSize [astTrue] + 1 + _findAstInstrSize [astFalse] + _findAstInstrSize xs
 
 _instructionListLengths :: Maybe [[Instruction]] -> [Int]
 _instructionListLengths (Just []) = [0]
@@ -604,5 +645,5 @@ compile ast filepath showInst = if showInst
     >> writeCompiledInstructionsToFile filepath compiledInstructions
   else writeCompiledInstructionsToFile filepath compiledInstructions
   where
-    instructions = concatMap astToInstructions ast ++ [Ret]
+    instructions = trace (show ast) concatMap astToInstructions ast ++ [Ret]
     compiledInstructions = _putInt32 (fromEnum MagicNumber) >> _fputList _compileInstruction instructions
