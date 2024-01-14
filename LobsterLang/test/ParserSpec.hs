@@ -198,3 +198,25 @@ spec = do
             runParser parseFunctionValue (0,0) "{| a + b |}" `shouldBe` Left (errorParsing (0, 0))
         it "Check parseFunctionValue Failure empty brackets" $ do
             runParser parseFunctionValue (0,0) "(|a,b|) {||}" `shouldBe` Left (errorParsing (0, 10))
+        it "Check parseFunctionValue Success no parametter" $ do
+            runParser parseFunctionValue (0,0) "(||) {|1|}" `shouldBe` Right (AST.FunctionValue [] (AST.Value 1) Nothing, "", (0,10))
+        it "Check parseBracket Success" $ do
+            runParser parseBracket (0,0) "{| a + b |}" `shouldBe` Right ((AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]), "", (0, 11))
+        it "Check parseBracket Failure invalid start bracket" $ do
+            runParser parseBracket (0,0) "{ a + b |}" `shouldBe` Left (errorParsing (0, 1))
+        it "Check parseBracket Failure invalid end bracket" $ do
+            runParser parseBracket (0,0) "{| a + b }" `shouldBe` Left (errorParsing (0, 9))
+        it "Check parseBracket Failure empty brackets" $ do
+            runParser parseBracket (0,0) "{||}" `shouldBe` Left (errorParsing (0, 2))
+        it "Check parseLambda Success" $ do
+            runParser parseLambda (0,0) "lambda(|a,b|) {| a + b |}" `shouldBe` Right (AST.FunctionValue ["a","b"] (AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) Nothing,"",(0,25))
+        it "Check parseLambda Success λ" $ do
+            runParser parseLambda (0,0) "λ(|a,b|) {| a + b |}" `shouldBe` Right (AST.FunctionValue ["a","b"] (AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) Nothing,"",(0,20))
+        it "Check parseLambda Failure missing lambda/λ" $ do
+            runParser parseLambda (0,0) "(|a,b|) {| a + b |}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseLambda Failure invalid keyword" $ do
+            runParser parseLambda (0,0) "lambdaa(||) {|1|}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseLambda Failure word after λ" $ do
+            runParser parseLambda (0,0) "λ a(||) {|1|}" `shouldBe` Left (errorParsing (0,2))
+        it "Check parseLambda Failure empty brackets" $ do
+            runParser parseLambda (0,0) "λ(||) {||}" `shouldBe` Left (errorParsing (0,8))
