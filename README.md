@@ -13,15 +13,15 @@ make
 ```
 
 ### Launch LobsterLang Interpreter
-To launch the LobsterLang interpreter, all you need is to launch the binary 'glados' without any argument
+To launch the LobsterLang interpreter, all you need to do is to launch the binary 'glados' without any argument
 ```bash
 ./glados
 ```
 
 ### Launch the LobsterLang Compiler
-To launch the LobsterLang interpreter, you will can precise multiple flags.
-The file compiled will be in the format `filename`.o
+To launch the LobsterLang compiler, you can precise multiple flags.
 By default, the file will be compiled and interpreted by the Virtual Machine
+The file compiled will be in the format `filename`.o
 ```bash
 ./glados [-flags] `filename`
 ```
