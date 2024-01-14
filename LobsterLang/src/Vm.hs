@@ -39,7 +39,7 @@ instance Num Value where
   (IntVal x) + (CharVal y) = IntVal (x + ord y)
   (BoolVal x) + (CharVal y) = IntVal (fromEnum x + ord y)
   (CharVal x) + (BoolVal y) = IntVal (ord x + fromEnum y)
-  _ + _  = IntVal (0)
+  _ + _  = IntVal 0
   (IntVal x) - (IntVal y) = IntVal (x - y)
   (BoolVal x) - (IntVal y) = IntVal (fromEnum x - y)
   (IntVal x) - (BoolVal y) = IntVal (x - fromEnum y)
@@ -49,7 +49,7 @@ instance Num Value where
   (IntVal x) - (CharVal y) = IntVal (x - ord y)
   (BoolVal x) - (CharVal y) = IntVal (fromEnum x - ord y)
   (CharVal x) - (BoolVal y) = IntVal (ord x - fromEnum y)
-  _ - _  = IntVal (0)
+  _ - _  = IntVal 0
   (IntVal x) * (IntVal y) = IntVal (x * y)
   (BoolVal x) * (IntVal y) = IntVal (fromEnum x * y)
   (IntVal x) * (BoolVal y) = IntVal (x * fromEnum y)
@@ -59,15 +59,15 @@ instance Num Value where
   (IntVal x) * (CharVal y) = IntVal (x * ord y)
   (BoolVal x) * (CharVal y) = IntVal (fromEnum x * ord y)
   (CharVal x) * (BoolVal y) = IntVal (ord x * fromEnum y)
-  _ * _  = IntVal (0)
+  _ * _  = IntVal 0
   abs (IntVal x) = IntVal (abs x)
   abs (BoolVal x) = IntVal (abs (fromEnum x))
   abs (CharVal x) = IntVal (abs (ord x))
-  abs _ = IntVal (0)
+  abs _ = IntVal 0
   signum (IntVal x) = IntVal (signum x)
   signum (BoolVal x) = IntVal (signum (fromEnum x))
   signum (CharVal x) = IntVal (signum (ord x))
-  signum _ = IntVal (0)
+  signum _ = IntVal 0
   fromInteger x = IntVal (fromInteger x)
 
 instance Fractional Value where
@@ -80,7 +80,7 @@ instance Fractional Value where
   (IntVal x) / (CharVal y) = IntVal (x `div` ord y)
   (CharVal x) / (BoolVal y) = IntVal (ord x `div` fromEnum y)
   (BoolVal x) / (CharVal y) = IntVal (fromEnum x `div` ord y)
-  _ / _ = IntVal (0)
+  _ / _ = IntVal 0
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
 
 data Operator = Add
@@ -161,7 +161,7 @@ instance Show Instruction where
     show (Push val) = "Push " ++ show val
     show (PushArg x) = "PushArg " ++ show x
     show (PushEnv x) = "PushEnv " ++ show x
-    show (PutArg) = "PutArg"
+    show PutArg = "PutArg"
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
@@ -262,28 +262,28 @@ makeOperation GreatEq stack = case Stack.pop stack of
 makeOperation And stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : And need two arguments"
     (Nothing, _) -> Left "Error : And need two arguments"
 makeOperation Or stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) || y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True || y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : Or need two arguments"
     (Nothing, _) -> Left "Error : Or need two arguments"
 makeOperation Xorb stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
-            | x == (BoolVal False) && y == (BoolVal False) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal False && y == BoolVal False -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : XOrb need two arguments"
     (Nothing, _) -> Left "Error : XOrb need two arguments"
 makeOperation Not stack = case Stack.pop stack of
     (Just x, stack1)
-        | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
+        | x == BoolVal False -> Right (Stack.push stack1 (BoolVal True))
         | otherwise -> Right (Stack.push stack1 (BoolVal False))
     (Nothing, _) -> Left "Error : Not need One arguments"
 makeOperation ToString stack = case Stack.pop stack of
@@ -369,7 +369,7 @@ exec env arg (PushArg x:xs) stack
 exec env arg (PushList x:xs) stack
     | x < 0 = Left "Error: index out of range"
     | x > length stack = Left "Error: index out of range"
-    | otherwise = exec env arg xs ([(ListVal (snd (createList x stack [])))] ++ (fst (createList x stack [])))
+    | otherwise = exec env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
 exec [] _ (PushEnv _:_) _ = Left "Error: no Env"
 exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
     Nothing -> Left "Error: not in environment"
