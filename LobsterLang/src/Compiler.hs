@@ -13,7 +13,8 @@ module Compiler (
   compileInstructions,
   showInstructions,
   writeCompiledInstructionsToFile,
-  Instruction(..)
+  Instruction(..),
+  CompileConstants(..)
 ) where
 
 import AST (Ast (..))
