@@ -39,7 +39,7 @@ jobs:
         with:
           enable-stack: true
       - name: Create documentation
-        run: stack haddock --haddock-arguments "-ohaddock"
+        run: stack haddock --haddock-arguments "-ohtml"
       - name: Deploy to GitHub Pages
         uses: crazy-max/ghaction-github-pages@v4
         with:
