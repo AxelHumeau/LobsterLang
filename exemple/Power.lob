@@ -1,0 +1,9 @@
+fn power(| a, pow |) {
+    if pow == 0 {
+        1
+    } else {
+        a * power(| a, pow - 1 |)
+    }
+}
+
+power(| 5, 5 |)

@@ -99,7 +99,7 @@ evalAst stack (Call "--" astList) = evalBiListOp (\l el -> filter (/= el) l) sta
 evalAst stack (Call "!!" astList) = case getElemInAstList stack (Call "!!" astList) of
   Left err -> (Left err, stack)
   Right ast' -> (Right (Just ast'), stack)
-evalAst stack (Call "len" astList) = evalUnListOp (AST.Value . length) stack (Call "len" astList)
+evalAst stack (Call "~" astList) = evalUnListOp (AST.Value . length) stack (Call "~" astList)
 evalAst stack (Call "$" [ast1, ast2]) = case evalAst stack ast1 of
   (Left err, _) -> (Left err, stack)
   (Right _, stack') -> case evalAst stack' ast2 of
@@ -321,7 +321,7 @@ getElemInAstList _ (Call "!!" _) =
 getElemInAstList _ _ = Left "Ast isn't a '!!' Call"
 
 -- | Evaluate the 'Ast' for a given unary list operator
--- such as 'len'.
+-- such as '~'.
 -- Takes a function that takes one '[Ast]' and return one 'Ast',
 -- the stack as a '[ScopeMb]', and the 'Ast' to evaluate.
 -- Return a tuple containing the new stack post evaluation, and the

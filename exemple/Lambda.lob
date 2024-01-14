@@ -1,11 +1,12 @@
-sqrt = λ (\ x: integer /) -> integer x * x
+sqrt = λ (| x |) { x * x }
 
-add = λ (\ a: integer, b: integer /) -> integer a + b
+add = λ (| a, b |) { a + b }
 
-sqrt(\ 5 /) # return 25
-add(\ 2, 9 /) # return 11
+sqrt(| 5 |)
 
-abs = λ (\ x: integer /) -> integer {
+add(| 2, 9 |)
+
+abs = λ (| x |) {
     if x < 0 {
         x * -1
     } else {
@@ -13,3 +14,4 @@ abs = λ (\ x: integer /) -> integer {
     }
 }
 
+abs(| -543 |)
