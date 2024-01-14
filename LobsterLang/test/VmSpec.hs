@@ -19,13 +19,13 @@ spec = do
         it "Check exec Call Add not enougth Arg" $ do
             exec [] [] [Push (IntVal 4), Push (Op Add), Call, Ret] [] `shouldBe` Left "Error : Add need two arguments"
         it "Check exec Call Subtract" $ do
-            exec [] [] [Push (IntVal 10), Push (IntVal 5), Push (Op Subtract), Call, Ret] [] `shouldBe` Right (IntVal (-5))
+            exec [] [] [Push (IntVal 10), Push (IntVal 5), Push (Op Vm.Sub), Call, Ret] [] `shouldBe` Right (IntVal (-5))
         it "Check exec Call Multiply" $ do
-            exec [] [] [Push (IntVal 3), Push (IntVal 7), Push (Op Multiply), Call, Ret] [] `shouldBe` Right (IntVal 21)
+            exec [] [] [Push (IntVal 3), Push (IntVal 7), Push (Op Vm.Mul), Call, Ret] [] `shouldBe` Right (IntVal 21)
         it "Check exec Call Divide" $ do
-            exec [] [] [Push (IntVal 4), Push (IntVal 20), Push (Op Divide), Call, Ret] [] `shouldBe` Right (IntVal 5)
+            exec [] [] [Push (IntVal 4), Push (IntVal 20), Push (Op Vm.Div), Call, Ret] [] `shouldBe` Right (IntVal 5)
         it "Check exec Call Divide by Zero" $ do
-            exec [] [] [Push (IntVal 0), Push (IntVal 10), Push (Op Divide), Call, Ret] [] `shouldBe` Left "Error: division by zero"
+            exec [] [] [Push (IntVal 0), Push (IntVal 10), Push (Op Vm.Div), Call, Ret] [] `shouldBe` Left "Error: division by zero"
         it "Check exec Call Equality True" $ do
             exec [] [] [Push (IntVal 5), Push (IntVal 5), Push (Op Eq), Call, Ret] [] `shouldBe` Right (BoolVal True)
         it "Check exec Call Equality False" $ do

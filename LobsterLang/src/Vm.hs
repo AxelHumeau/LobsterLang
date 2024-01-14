@@ -39,7 +39,7 @@ instance Num Value where
   (IntVal x) + (CharVal y) = IntVal (x + ord y)
   (BoolVal x) + (CharVal y) = IntVal (fromEnum x + ord y)
   (CharVal x) + (BoolVal y) = IntVal (ord x + fromEnum y)
-  _ + _  = IntVal (0)
+  _ + _  = IntVal 0
   (IntVal x) - (IntVal y) = IntVal (x - y)
   (BoolVal x) - (IntVal y) = IntVal (fromEnum x - y)
   (IntVal x) - (BoolVal y) = IntVal (x - fromEnum y)
@@ -49,7 +49,7 @@ instance Num Value where
   (IntVal x) - (CharVal y) = IntVal (x - ord y)
   (BoolVal x) - (CharVal y) = IntVal (fromEnum x - ord y)
   (CharVal x) - (BoolVal y) = IntVal (ord x - fromEnum y)
-  _ - _  = IntVal (0)
+  _ - _  = IntVal 0
   (IntVal x) * (IntVal y) = IntVal (x * y)
   (BoolVal x) * (IntVal y) = IntVal (fromEnum x * y)
   (IntVal x) * (BoolVal y) = IntVal (x * fromEnum y)
@@ -59,15 +59,15 @@ instance Num Value where
   (IntVal x) * (CharVal y) = IntVal (x * ord y)
   (BoolVal x) * (CharVal y) = IntVal (fromEnum x * ord y)
   (CharVal x) * (BoolVal y) = IntVal (ord x * fromEnum y)
-  _ * _  = IntVal (0)
+  _ * _  = IntVal 0
   abs (IntVal x) = IntVal (abs x)
   abs (BoolVal x) = IntVal (abs (fromEnum x))
   abs (CharVal x) = IntVal (abs (ord x))
-  abs _ = IntVal (0)
+  abs _ = IntVal 0
   signum (IntVal x) = IntVal (signum x)
   signum (BoolVal x) = IntVal (signum (fromEnum x))
   signum (CharVal x) = IntVal (signum (ord x))
-  signum _ = IntVal (0)
+  signum _ = IntVal 0
   fromInteger x = IntVal (fromInteger x)
 
 instance Fractional Value where
@@ -80,7 +80,7 @@ instance Fractional Value where
   (IntVal x) / (CharVal y) = IntVal (x `div` ord y)
   (CharVal x) / (BoolVal y) = IntVal (ord x `div` fromEnum y)
   (BoolVal x) / (CharVal y) = IntVal (fromEnum x `div` ord y)
-  _ / _ = IntVal (0)
+  _ / _ = IntVal 0
   fromRational x = IntVal (fromInteger (numerator x) `div` fromInteger (denominator x))
 
 data Operator = Add
@@ -101,6 +101,7 @@ data Operator = Add
               | Get
               | Append
               | RmOcc
+              | Len
 
 instance Ord Operator where
     compare op1 op2 = compare (show op1) (show op2)
@@ -124,6 +125,7 @@ instance Show Operator where
     show Get = "!!"
     show RmOcc = "--"
     show Append = "++"
+    show Len = "~"
 
 instance Eq Operator where
     Add == Add = True
@@ -140,12 +142,13 @@ instance Eq Operator where
     Or == Or = True
     Xorb == Xorb = True
     Not == Not = True
+    Len == Len = True
     _ == _ = False
 
 data Instruction = Push Value
                 | PushArg Int
                 | PushEnv String
-                | PutArg Value
+                | PutArg
                 | Call
                 | JumpIfFalse Int
                 | JumpIfTrue Int
@@ -158,7 +161,7 @@ instance Show Instruction where
     show (Push val) = "Push " ++ show val
     show (PushArg x) = "PushArg " ++ show x
     show (PushEnv x) = "PushEnv " ++ show x
-    show (PutArg v) = "PutArg " ++ show v
+    show PutArg = "PutArg"
     show Call = "Call"
     show (JumpIfFalse x) = "JumpIfFalse " ++ show x
     show (JumpIfTrue x) = "JumpIfTrue " ++ show x
@@ -259,28 +262,28 @@ makeOperation GreatEq stack = case Stack.pop stack of
 makeOperation And stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : And need two arguments"
     (Nothing, _) -> Left "Error : And need two arguments"
 makeOperation Or stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) || y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True || y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : Or need two arguments"
     (Nothing, _) -> Left "Error : Or need two arguments"
 makeOperation Xorb stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2)
-            | x == (BoolVal True) && y == (BoolVal True) -> Right (Stack.push stack2 (BoolVal True))
-            | x == (BoolVal False) && y == (BoolVal False) -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
+            | x == BoolVal False && y == BoolVal False -> Right (Stack.push stack2 (BoolVal True))
             | otherwise -> Right (Stack.push stack2 (BoolVal False))
         (Nothing, _) -> Left "Error : XOrb need two arguments"
     (Nothing, _) -> Left "Error : XOrb need two arguments"
 makeOperation Not stack = case Stack.pop stack of
     (Just x, stack1)
-        | x == (BoolVal False) -> Right (Stack.push stack1 (BoolVal True))
+        | x == BoolVal False -> Right (Stack.push stack1 (BoolVal True))
         | otherwise -> Right (Stack.push stack1 (BoolVal False))
     (Nothing, _) -> Left "Error : Not need One arguments"
 makeOperation ToString stack = case Stack.pop stack of
@@ -313,6 +316,11 @@ makeOperation RmOcc stack = case Stack.pop stack of
         (Nothing, _) -> Left "Error : RmOcc need two arguments"
     (Just _, _) -> Left "Error : Cannot RmOcc on not a List"
     (Nothing, _) -> Left "Error : RmOcc need two arguments"
+makeOperation Len stack = case Stack.pop stack of
+    (Just (StringVal s), stack1) -> Right (Stack.push stack1 (IntVal (length s)))
+    (Just (ListVal l), stack1) -> Right (Stack.push stack1 (IntVal (length l)))
+    (Just _, _) -> Left "Error : Len no len"
+    (Nothing, _) -> Left "Error : Len need one arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
@@ -360,7 +368,7 @@ exec depth env arg (Call : xs) stack = case Stack.pop stack of
                     (Just v, stack3) -> exec depth env arg (Call:xs)
                         (Stack.push
                             (Stack.push stack3 (IntVal (nb' - 1)))
-                            (Function (PutArg v:body) (nb - 1)))
+                            (Function (Push v:PutArg:body) (nb - 1)))
                     (Nothing, _) -> (Left "Error: stack is empty", env)
             (_, _) -> (Left "Error: stack is invalid for a function call", env)
         (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a), env)
@@ -372,20 +380,28 @@ exec depth env arg (PushArg x:xs) stack
 exec depth env arg (PushList x:xs) stack
     | x < 0 = (Left "Error: index out of range", env)
     | x > length stack = (Left "Error: index out of range", env)
-    | otherwise = exec depth env arg xs ([(ListVal (snd (createList x stack [])))] ++ (fst (createList x stack [])))
+    | otherwise = exec depth env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
 exec _ [] _ (PushEnv _:_) _ = (Left "Error: no Env", [])
 exec depth env arg (PushEnv x:xs) stack =  case isInEnv x depth env of
     Nothing -> (Left "Error: not in environment", env)
-    Just val -> exec depth env arg  (Push val:xs) stack
+    Just (BoolVal b) -> exec depth env arg  (Push (BoolVal b):xs) stack
+    Just (IntVal i) -> exec depth env arg  (Push (IntVal i):xs) stack
+    Just (CharVal c) -> exec depth env arg  (Push (CharVal c):xs) stack
+    Just (StringVal str) -> exec depth env arg  (Push (StringVal str):xs) stack
+    Just (Op op) -> exec depth env arg (Push (Op op):xs) stack
+    Just (Function func nb) -> exec depth env arg (Push (Function func nb):xs) stack
+    Just (ListVal list) -> exec depth env arg (Push (ListVal list):xs) stack
 exec depth env arg (Push val:xs) stack = exec depth env arg xs (Stack.push stack val)
-exec depth env arg (PutArg val:xs) stack = exec depth env (arg ++ [val]) xs stack
+exec depth env arg (PutArg:xs) stack = case Stack.pop stack of
+    (Nothing, _) -> (Left "Error: stack is empty", env)
+    (Just val, stack1) -> exec depth env (arg ++ [val]) xs stack1
 exec depth env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = (Left "Error: no jump possible", env)
   | Prelude.null stack = (Left "Error: stack is empty", env)
   | val < 0 = (Left "Error: invalid jump value", env)
   | val > length xs = (Left "Error: invalid jump value", env)
   | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
-  | (head stack) == BoolVal True = exec depth env arg xs stack
+  | head stack == BoolVal True = exec depth env arg xs stack
   | otherwise = exec depth env arg (Prelude.drop val xs) stack
 exec depth env arg (JumpIfTrue val:xs) stack
   | Prelude.null xs = (Left "Error: no jump possible", env)
@@ -393,7 +409,7 @@ exec depth env arg (JumpIfTrue val:xs) stack
   | val < 0 = (Left "Error: invalid jump value", env)
   | val > length xs = (Left "Error: invalid jump value", env)
   | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
-  | (head stack) == BoolVal False = exec depth env arg xs stack
+  | head stack == BoolVal False = exec depth env arg xs stack
   | otherwise = exec depth env arg (Prelude.drop val xs) stack
 exec depth env arg (Jump val:xs) stack
   | Prelude.null xs = (Left "Error: no jump possible", env)

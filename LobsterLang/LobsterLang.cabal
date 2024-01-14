@@ -27,6 +27,7 @@ library
   exposed-modules:
       AST
       AstEval
+      AstOptimizer
       Compiler
       CompiletoVm
       Parse
@@ -70,7 +71,9 @@ test-suite LobsterLang-test
   main-is: Spec.hs
   other-modules:
       AstEvalSpec
+      AstOptimizerSpec
       CompilerSpec
+      ParserSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:
