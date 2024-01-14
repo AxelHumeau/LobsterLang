@@ -184,3 +184,9 @@ spec = do
             runParser parseExpr (0,0) "! *" `shouldBe` Left (errorParsing (0,2))
         it "Check parseExpr Unary Operation Failure (missing operator)" $ do
             runParser parseExpr (0,0) "error" `shouldBe` Right (AST.Symbol "error" Nothing, "", (0, 5))
+        it "Check parseCmpString Success" $ do
+            runParser (parseCmpString "test") (0,0) "test" `shouldBe` Right ("test", "", (0, 4))
+        it "Check parseCmpString Success with remaining string" $ do
+            runParser (parseCmpString "test") (0,0) "test abc" `shouldBe` Right ("test", "abc", (0, 5))
+        it "Check parseCmpString Failure" $ do
+            runParser (parseCmpString "test") (0,0) "testa abc" `shouldBe` Left (errorParsing (0, 0))
