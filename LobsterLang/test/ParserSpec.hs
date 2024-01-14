@@ -194,11 +194,11 @@ spec = do
             runParser parseFunctionValue (0,0) "(|a,b|) {| a + b |}" `shouldBe` Right (AST.FunctionValue ["a","b"] (AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) Nothing,"",(0,19))
         it "Check parseFunctionValue Failure missing brackets" $ do
             runParser parseFunctionValue (0,0) "(|a,b|) a + b" `shouldBe` Left (errorParsing (0, 8))
-        it "Check parseFunctionValue Failure parametters" $ do
+        it "Check parseFunctionValue Failure parameters" $ do
             runParser parseFunctionValue (0,0) "{| a + b |}" `shouldBe` Left (errorParsing (0, 0))
         it "Check parseFunctionValue Failure empty brackets" $ do
             runParser parseFunctionValue (0,0) "(|a,b|) {||}" `shouldBe` Left (errorParsing (0, 10))
-        it "Check parseFunctionValue Success no parametter" $ do
+        it "Check parseFunctionValue Success no parameter" $ do
             runParser parseFunctionValue (0,0) "(||) {|1|}" `shouldBe` Right (AST.FunctionValue [] (AST.Value 1) Nothing, "", (0,10))
         it "Check parseBracket Success" $ do
             runParser parseBracket (0,0) "{| a + b |}" `shouldBe` Right ((AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]), "", (0, 11))
@@ -238,3 +238,27 @@ spec = do
             runParser parseCond (0,0) "ifa==b {||}" `shouldBe` Left (errorParsing (0,0))
         it "Check parseCond Success ignore error in else" $ do
             runParser parseCond (0,0) "if a==b {|1|} else" `shouldBe` Right (AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) (AST.Value 1) Nothing, "else", (0, 14))
+        it "Check parseComment Success" $ do
+            runParser parseComment (0,0) "#fn test(||) {|1|}" `shouldBe` Right ('\n', "", (0, 19))
+        it "Check parseComment Failure no #" $ do
+            runParser parseComment (0,0) "fn test(||) {|1|}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseComment Success with new line" $ do
+            runParser parseComment (0,0) "#fn test(||) {|1|}\ntest=1" `shouldBe` Right ('\n', "test=1", (1, 0))
+        it "Check parseDefineFn Success" $ do
+            runParser parseDefineFn (0,0) "fn function(|a|) {|a|}" `shouldBe` Right (AST.Define "function" (AST.FunctionValue ["a"] (AST.Symbol "a" Nothing) Nothing),"",(0,22))
+        it "Check parseDefineFn Success" $ do
+            runParser parseDefineFn (0,0) "fn function(|a|) {|a|}" `shouldBe` Right (AST.Define "function" (AST.FunctionValue ["a"] (AST.Symbol "a" Nothing) Nothing),"",(0,22))
+        it "Check parseDefineFn Failure no fn" $ do
+            runParser parseDefineFn (0,0) "function(|a|) {|a|}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseDefineFn Failure no space after fn" $ do
+            runParser parseDefineFn (0,0) "fnfunction(|a|) {|a|}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseDefineFn Failure no function name" $ do
+            runParser parseDefineFn (0,0) "fn (|a|) {|a|}" `shouldBe` Left (errorParsing (0,3))
+        it "Check parseDefineFn Failure no parameter" $ do
+            runParser parseDefineFn (0,0) "fn function {|a|}" `shouldBe` Left (errorParsing (0,12))
+        it "Check parseDefineFn Failure no brackets" $ do
+            runParser parseDefineFn (0,0) "fn function(|a|)" `shouldBe` Left (errorParsing (0,16))
+        it "Check parseDefineFn Failure invalid parameters" $ do
+            runParser parseDefineFn (0,0) "fn function(|a,|) {|a|}" `shouldBe` Left (errorParsing (0,15))
+        it "Check parseDefineFn Failure empty brackets" $ do
+            runParser parseDefineFn (0,0) "fn function(|a|) {||}" `shouldBe` Left (errorParsing (0,19))

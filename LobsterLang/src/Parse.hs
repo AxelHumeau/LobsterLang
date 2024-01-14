@@ -41,7 +41,8 @@ module Parse (
     parseLambda,
     parseCond,
     parseFunctionValue,
-    parseBracket
+    parseBracket,
+    parseComment
 ) where
 
 import qualified AST
@@ -424,7 +425,7 @@ parseComment :: Parser Char
 parseComment = parseChar '#' *> Parser f
     where
         f :: Position -> String -> Either String (Char, String, Position)
-        f (row, col) ('\n':xs)  = Right ('\n', xs, (row + 1, col))
+        f (row, _) ('\n':xs)  = Right ('\n', xs, (row + 1, 0))
         f (row, col) "" = Right ('\n', "", (row, col + 1))
         f (row, col) (_:xs) = f (row, col + 1) xs
 
