@@ -68,10 +68,18 @@ compileFile file s = case runParser parseLobster (0, 0) s of
 
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []
-checkArgs (file:_) = either
+checkArgs ("-c":file:_) = either
                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
                         (compileFile file)
                         =<< (try (readFile file) :: IO (Either SomeException String))
+-- checkArgs ("-i":file:_) = either
+--                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
+--                         (interpretateVM file)
+--                         =<< (try (readFile file) :: IO (Either SomeException String))
+-- checkArgs (file:_) = either
+--                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
+--                         (compileLobster file)
+--                         =<< (try (readFile file) :: IO (Either SomeException String))
 
 -- | Main
 main :: IO ()
