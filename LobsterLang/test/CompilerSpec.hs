@@ -38,7 +38,7 @@ spec = do
                 (AST.Symbol "foo" (Just [AST.Value 4, AST.Value 2]))
             `shouldBe`
                 [PushSym "foo"
-                (Just [[PushI 4], [PushI 2]])]
+                (Just [[PushI 4, PutArg], [PushI 2, PutArg]])]
         -- PushStr
         it "Check astToInstructions String not empty" $ do
             astToInstructions (AST.String "lobster") `shouldNotBe` []

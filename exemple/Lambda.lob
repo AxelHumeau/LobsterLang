@@ -1,10 +1,11 @@
 sqrt = λ (| x |) {| x * x |}
 
-add = λ (| a, b |){| a + b |}
+add = λ (| a, b |) {| a + b |}
 
 sqrt(| 5 |) # return 25
+
 add(| 2, 9 |) # return 11
-        # test
+
 abs = λ (| x |) {|
     if x < 0 {|
         x * -1
