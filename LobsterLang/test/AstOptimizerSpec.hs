@@ -162,4 +162,4 @@ spec = do
         it "Infinite recursion" $ do
             optimizeAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] [Symbol "eh" (Just [AST.Value 1])] False `shouldBe` [Right (Warning "Possible infinite recursion" (Symbol "eh" (Just [AST.Value 1])))]
         it "Infinite recursion in define" $ do
-            optimizeAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] [Define "a" (Symbol "eh" (Just [AST.Value 1]))] False `shouldBe` [Right (Warning "Possible infinite recursion" (Define "a" (Symbol "eh" (Just [AST.Value 1]))))]
+            optimizeAst [Variable "eh" (FunctionValue ["x"] (Symbol "eh" (Just [Symbol "x" Nothing])) Nothing) 0] [Define "a" (Symbol "eh" (Just [AST.Value 1]))] False `shouldBe` [Left (Error "Recursion limit reached" (Define "a" (Symbol "eh" (Just [Value 1]))))]
