@@ -39,7 +39,9 @@ module Parse (
     errorParsing,
     parseDefineFn,
     parseLambda,
-    parseCond
+    parseCond,
+    parseFunctionValue,
+    parseBracket
 ) where
 
 import qualified AST

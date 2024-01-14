@@ -220,3 +220,21 @@ spec = do
             runParser parseLambda (0,0) "λ a(||) {|1|}" `shouldBe` Left (errorParsing (0,2))
         it "Check parseLambda Failure empty brackets" $ do
             runParser parseLambda (0,0) "λ(||) {||}" `shouldBe` Left (errorParsing (0,8))
+        it "Check parseCond Success single if" $ do
+            runParser parseCond (0,0) "if a == b {| 1 |}" `shouldBe` Right (AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) (AST.Value 1) Nothing,"",(0,17))
+        it "Check parseCond Success if and else" $ do
+            runParser parseCond (0,0) "if a == b {| 1 |} else {| 0 |}" `shouldBe` Right ((AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) (AST.Value 1) (Just (AST.Value 0))),"",(0,30))
+        it "Check parseCond Success if, else if and else" $ do
+            runParser parseCond (0,0) "if a == b {| 1 |} else if a == 2 {| 2 |} else {| 0 |}" `shouldBe` Right (AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) (AST.Value 1) (Just (AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Value 2]) (AST.Value 2) (Just (Value 0)))),"",(0,53))
+        it "Check parseCond Failure invalid expr" $ do
+            runParser parseCond (0,0) "if a *= 2 {|1|}" `shouldBe` Left (errorParsing (0,5))
+        it "Check parseCond Failure no expr" $ do
+            runParser parseCond (0,0) "if {|1|}" `shouldBe` Left (errorParsing (0,3))
+        it "Check parseCond Failure empty brackets" $ do
+            runParser parseCond (0,0) "if a {||}" `shouldBe` Left (errorParsing (0,7))
+        it "Check parseCond Failure no if" $ do
+            runParser parseCond (0,0) "a == b {||}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseCond Failure no space between if and expr" $ do
+            runParser parseCond (0,0) "ifa==b {||}" `shouldBe` Left (errorParsing (0,0))
+        it "Check parseCond Success ignore error in else" $ do
+            runParser parseCond (0,0) "if a==b {|1|} else" `shouldBe` Right (AST.Cond (AST.Call "==" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) (AST.Value 1) Nothing, "else", (0, 14))
