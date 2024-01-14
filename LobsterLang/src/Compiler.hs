@@ -178,7 +178,8 @@ astToInstructions (Symbol symbolName Nothing) = [PushSym symbolName Nothing]
 astToInstructions (Symbol symbolName (Just symbolArgs)) =
   [PushSym symbolName (Just symbolArgsInstructions)]
   where
-    symbolArgsInstructions = map astToInstructions symbolArgs
+    symbolArgsInstructions =
+      foldr (((:) . \b -> b ++ [PutArg]) . astToInstructions) [] symbolArgs
 astToInstructions (String stringValue) = [PushStr stringValue]
 astToInstructions (List values) =
   [PushList (length valuesInstructions) valuesInstructions]
@@ -253,7 +254,7 @@ astToInstructions (FunctionValue argsNames funcBody (Just argsValues)) =
     funcBodyInstructions =
       _resolveFunctionPushArgs (astToInstructions funcBody ++ [Ret]) argsNames
     argsValuesInstructions =
-      Just (foldr (((:) . (++) [PutArg]) . astToInstructions) [] argsValues)
+      Just (foldr (((:) . \b -> b ++ [PutArg]) . astToInstructions) [] argsValues)
     nbArgsValuesInstructions = _instructionListLengths argsValuesInstructions
 astToInstructions (AST.Cond cond trueBlock (Just falseBlock)) =
   [ Compiler.Cond
