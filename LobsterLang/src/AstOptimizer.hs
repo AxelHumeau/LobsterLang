@@ -7,6 +7,7 @@
 
 module AstOptimizer
   ( optimizeAst,
+    fromOptimised,
     AstError (..),
     AstOptimised (..),
   )
@@ -55,7 +56,14 @@ optimizeAst stack ((Define n ast) : xs) inFunc = case optimizeAst stack [ast] in
       | inFunc -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
       | otherwise -> Left (Error ('S' : 'y' : 'm' : 'b' : 'o' : 'l' : ' ' : '\'' : xs') (Define n opAst)) : optimizeAst stack xs inFunc
     (Left err, _) -> Left (Error err (Define n opAst)) : optimizeAst stack xs inFunc
-  [Right (Warning mes opAst)] -> Right (Warning mes (Define n opAst)) : optimizeAst stack xs inFunc
+  [Right (Warning mes opAst)] -> case evalAst stack (Define n opAst) of
+    (Right _, stack') -> Right (Warning mes (Define n opAst)) : optimizeAst stack' xs inFunc
+    (Left ('R' : 'e' : 'c' : 'u' : 'r' : 's' : 'i' : 'o' : 'n' : _), stack')  ->
+        Right (Warning "Possible infinite recursion" (Define n opAst)) : optimizeAst stack' xs inFunc
+    (Left ('S' : 'y' : 'm' : 'b' : 'o' : 'l' : ' ' : '\'' : xs'), _)
+      | inFunc -> Right (Result (Define n opAst)) : optimizeAst stack xs inFunc
+      | otherwise -> Left (Error ('S' : 'y' : 'm' : 'b' : 'o' : 'l' : ' ' : '\'' : xs') (Define n opAst)) : optimizeAst stack xs inFunc
+    (Left err, _) -> Left (Error err (Define n opAst)) : optimizeAst stack xs inFunc
   _ -> shouldntHappen stack (Define n ast : xs) inFunc
 optimizeAst stack ((Symbol s Nothing) : xs) inFunc
   | inFunc = Right (Result (Symbol s Nothing)) : optimizeAst stack xs inFunc

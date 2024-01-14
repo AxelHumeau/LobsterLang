@@ -1,17 +1,17 @@
-sqrt = λ (| x |) { x * x }
+sqrt = λ (| x |) {| x * x |}
 
-add = λ (| a, b |) { a + b }
+add = λ (| a, b |) {| a + b |}
 
-sqrt(| 5 |)
+sqrt(| 5 |) # return 25
 
-add(| 2, 9 |)
+add(| 2, 9 |) # return 11
 
-abs = λ (| x |) {
-    if x < 0 {
+abs = λ (| x |) {|
+    if x < 0 {|
         x * -1
-    } else {
+    |} else {|
         x
-    }
-}
+    |}
+|}
 
 abs(| -543 |)
