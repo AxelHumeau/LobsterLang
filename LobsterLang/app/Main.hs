@@ -76,10 +76,11 @@ checkArgs ("-c":file:_) = either
 --                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
 --                         (interpretateVM file)
 --                         =<< (try (readFile file) :: IO (Either SomeException String))
--- checkArgs (file:_) = either
---                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
---                         (compileLobster file)
---                         =<< (try (readFile file) :: IO (Either SomeException String))
+checkArgs (file:_) = either
+                        (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
+--                        (compileLobster file)
+                        (compileFile file)
+                        =<< (try (readFile file) :: IO (Either SomeException String))
 
 -- | Main
 main :: IO ()
