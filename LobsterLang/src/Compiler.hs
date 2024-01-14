@@ -42,6 +42,7 @@ data Instruction =
   | PushStr String
   | PushList Int [[Instruction]]
   | PushArg Int
+  | PutArg
   -- Jump Instructions
   | Jump Int
   | JumpIfFalse Int
@@ -91,6 +92,7 @@ instance Enum Instruction where
   fromEnum (PushStr _) = 13
   fromEnum (PushList _ _) = 14
   fromEnum (PushArg _) = 15
+  fromEnum PutArg = 16
   -- Jump Instructions [30 - 40]
   fromEnum (Jump _) = 30
   fromEnum (JumpIfFalse _) = 31
@@ -137,6 +139,7 @@ instance Enum Instruction where
   toEnum 13 = PushStr ""
   toEnum 14 = PushList 0 []
   toEnum 15 = PushArg 0
+  toEnum 16 = PutArg
   toEnum 30 = Jump 0
   toEnum 31 = JumpIfFalse 0
   toEnum 40 = Def "" 0 []
@@ -249,7 +252,8 @@ astToInstructions (FunctionValue argsNames funcBody (Just argsValues)) =
   where
     funcBodyInstructions =
       _resolveFunctionPushArgs (astToInstructions funcBody ++ [Ret]) argsNames
-    argsValuesInstructions = Just (map astToInstructions argsValues)
+    argsValuesInstructions =
+      Just (foldr (((:) . (++) [PutArg]) . astToInstructions) [] argsValues)
     nbArgsValuesInstructions = _instructionListLengths argsValuesInstructions
 astToInstructions (AST.Cond cond trueBlock (Just falseBlock)) =
   [ Compiler.Cond
@@ -300,6 +304,8 @@ _showInstruction (PushList nbValuesInstructions valuesInstructions) depth =
     "[\n" ++ _showInstructionList valuesInstructions (depth + 1) ++ "]\n"
 _showInstruction (PushArg index) depth =
   concat (replicate depth "\t") ++ "PUSH_ARG " ++ show index ++ "\n"
+_showInstruction PutArg depth =
+  concat (replicate depth "\t") ++ "PUT_ARG " ++ "\n"
 _showInstruction (Jump branchOffset) depth =
   concat (replicate depth "\t")
   ++ "JUMP "
@@ -482,6 +488,9 @@ _compileInstruction (PushList nbListValues listValues) =
 -- PushArg
 _compileInstruction (PushArg index) =
   _putOpCodeFromInstruction (PushArg index) >> _putInt32 index
+-- PutArg
+_compileInstruction PutArg =
+  _putOpCodeFromInstruction PutArg
 -- Jump
 _compileInstruction (Jump branchOffset) =
   _putOpCodeFromInstruction (Jump branchOffset)
@@ -540,22 +549,20 @@ _compileInstruction (Def symbolName nbInstruction instructions)
 _compileInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
   funcBodyInstructions nbArgsValuesInstructions
   (Just argsValuesInstructions)) =
-    _putOpCodeFromInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
-    funcBodyInstructions nbArgsValuesInstructions
+    _fputList compileInstructions argsValuesInstructions
+    >> _putInt32 (length argsValuesInstructions)
+    >> _putOpCodeFromInstruction (Fnv nbArgsNames argsNames
+    nbFuncBodyInstructions funcBodyInstructions nbArgsValuesInstructions
     (Just argsValuesInstructions))
     >> _putInt32 nbArgsNames
-    >> _fputList _putString argsNames
     >> _putInt32 nbFuncBodyInstructions
     >> _fputList _compileInstruction funcBodyInstructions
-    >> _putInt32 (length nbArgsValuesInstructions)
-    >> _fputList _putInt32 nbArgsValuesInstructions
-    >> _fputList compileInstructions argsValuesInstructions
+    >> _putOpCodeFromInstruction Compiler.Call
 _compileInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
   funcBodyInstructions nbArgsValuesInstructions Nothing) =
     _putOpCodeFromInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
     funcBodyInstructions nbArgsValuesInstructions Nothing)
     >> _putInt32 nbArgsNames
-    >> _fputList _putString argsNames
     >> _putInt32 nbFuncBodyInstructions
     >> _fputList _compileInstruction funcBodyInstructions
 -- Cond
