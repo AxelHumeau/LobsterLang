@@ -5,9 +5,9 @@ cabal-version: 2.2
 -- see: https://github.com/sol/hpack
 
 name:           LobsterLang
-version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/LobsterLang#readme>
-homepage:       https://github.com/githubuser/LobsterLang#readme
+version:        1.0
+description:    Please see the README on GitHub at <https://github.com/AxelHumeau/LobsterLang/blob/main/README.md>
+homepage:       https://github.com/AxelHumeau/LobsterLang
 bug-reports:    https://github.com/githubuser/LobsterLang/issues
 author:         Author name here
 maintainer:     example@example.com
@@ -29,6 +29,7 @@ library
       AstEval
       AstOptimizer
       Compiler
+      CompiletoVm
       Parse
       Scope
       SExpr

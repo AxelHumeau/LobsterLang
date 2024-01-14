@@ -1,16 +1,7 @@
-fn rangeToStr(\ a: integer, b: integer /) -> string {
-    if a >= b {
+fn rangeToStr(| a, b |) {|
+    if a >= b {|
         @ b
-    } else {
-        @ a ++ rangeToStr(\ a + 1, b /)
-    }
-}
-
-fn rangeToStrLoop(\ a: integer, b: integer /) -> string {
-    str: string = "";
-    while a < b {
-        str ++= @ tmp;
-        a += 1;
-    }
-    str
-}
+    |} else {|
+        @ a + rangeToStr(| a + 1, b |)
+    |}
+|}
