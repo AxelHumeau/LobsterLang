@@ -29,5 +29,5 @@ The file compiled will be in the format `filename`.o
 ### Flags
 ```
     -c      compiling the file
-    -i      interpretate the compiled file
+    -e      interpretate the compiled file
 ```
