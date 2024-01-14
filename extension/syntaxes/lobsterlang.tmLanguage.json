@@ -1,0 +1,103 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "LobsterLang",
+	"patterns": [
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#keywords_operators"
+		},
+		{
+			"include": "#function_definition"
+		},
+		{
+			"include": "#strings"
+		}
+	],
+	"repository": {
+		"constants": {
+			"patterns": [
+				{
+					"name": "constant.numeric.lobsterlang",
+					"match": "\\b([0-9]+)\\b"
+				},
+				{
+					"name": "punctuation.terminator.statement.lobsterlang",
+					"match": ";"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.lobsterlang",
+					"match": "\\b(if|else|while|for|λ|lambda)\\b"
+				}
+			]
+		},
+		"keywords_operators": {
+			"patterns": [
+				{
+					"name": "keyword.operator.lobsterlang",
+					"match": "[+]{1,2}|[-?!>]|[*]|[\\/?!)]|[%]|[@]|[~]|[$]|[=]+=?|[\\!><]+=?"
+				}
+			]
+		},
+		"function_definition": {
+			"name": "storage.type.function.lobsterlang",
+			"patterns": [
+				{
+					"include": "#keywords"
+				},
+                {
+                    "begin": "fn",
+                    "end": "[(]\\|",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "keyword"
+                        }
+                    },
+                    "endCaptures": {
+                        "0": {
+                            "name": "keyword.other"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "match": "[a-zA-Z][a-zA-Z_0-9]*",
+                            "name": "entity.name.function"
+                        }
+                    ]
+                },
+                {
+                    "match": "fn",
+                    "name": "keyword"
+                },
+                {
+                    "match": "}|{|:|[(]\\||\\|[)]|->",
+                    "name": "keyword.other"
+                },
+                {
+                    "match": "#.*$",
+                    "name": "comment"
+                }
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.lobsterlang",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.lobsterlang",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.lobsterlang"
+}
