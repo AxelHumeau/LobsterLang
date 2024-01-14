@@ -1,7 +1,7 @@
-fn factorial(| x |) {
-    if x == 0 {
+fn factorial(| x |) {|
+    if x == 0 {|
         1
-    } else {
+    |} else {|
         x * factorial(| x - 1 |)
-    }
-}
+    |}
+|}

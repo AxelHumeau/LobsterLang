@@ -38,14 +38,12 @@ jobs:
         uses: haskell-actions/setup@v2
         with:
           enable-stack: true
-      - name: Install documentation
-        run: sudo apt-get install haskell-platform-doc && sudo apt-get install ghc-doc
       - name: Create documentation
-        run: haddock -ohtml --html LobsterLang/src/*
+        run: stack haddock --haddock-arguments "-ohtml"
       - name: Deploy to GitHub Pages
         uses: crazy-max/ghaction-github-pages@v4
         with:
           target_branch: gh-pages
-          build_dir: html
+          build_dir: LobsterLang/html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
