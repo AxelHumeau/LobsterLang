@@ -190,3 +190,11 @@ spec = do
             runParser (parseCmpString "test") (0,0) "test abc" `shouldBe` Right ("test", "abc", (0, 5))
         it "Check parseCmpString Failure" $ do
             runParser (parseCmpString "test") (0,0) "testa abc" `shouldBe` Left (errorParsing (0, 0))
+        it "Check parseFunctionValue Success" $ do
+            runParser parseFunctionValue (0,0) "(|a,b|) {| a + b |}" `shouldBe` Right (AST.FunctionValue ["a","b"] (AST.Call "+" [AST.Symbol "a" Nothing, AST.Symbol "b" Nothing]) Nothing,"",(0,19))
+        it "Check parseFunctionValue Failure missing brackets" $ do
+            runParser parseFunctionValue (0,0) "(|a,b|) a + b" `shouldBe` Left (errorParsing (0, 8))
+        it "Check parseFunctionValue Failure parametters" $ do
+            runParser parseFunctionValue (0,0) "{| a + b |}" `shouldBe` Left (errorParsing (0, 0))
+        it "Check parseFunctionValue Failure empty brackets" $ do
+            runParser parseFunctionValue (0,0) "(|a,b|) {||}" `shouldBe` Left (errorParsing (0, 10))
