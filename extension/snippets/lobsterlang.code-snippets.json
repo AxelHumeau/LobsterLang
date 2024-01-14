@@ -1,0 +1,51 @@
+{
+	"(| ... |)": {
+		"prefix": "(|",
+		"body": [
+			"(|$1|)"
+		],
+		"description": "Add lobster parentheses"
+	},
+	"function": {
+		"prefix": ["fn", "function"],
+		"body": [
+			"fn $1(| $2 |) {\n\t$3\n};"
+		],
+		"description": "Create a lobster function (fn ...(| ... |) {...};)"
+	},
+	"lambda": {
+		"prefix": ["lambda"],
+		"body": [
+			"$1 = lambda (| $2 |) {$3};"
+		],
+		"description": "Create a lobster lambda (... = lambda (| ... |) {...};)"
+	},
+	"lambda (λ)": {
+		"prefix": ["lambda", "λ"],
+		"body": [
+			"$1 = λ (| $2 |) {$3};"
+		],
+		"description": "Create a lobster lambda (... = λ (| ... |) {...};)"
+	},
+	"if": {
+		"prefix": ["if"],
+		"body": [
+			"if $1 {\n\t$2\n}"
+		],
+		"description": "Create a if statement block (if ... { ... })"
+	},
+	"if else": {
+		"prefix": ["if else"],
+		"body": [
+			"if $1 {\n\t$2\n} else $3"
+		],
+		"description": "Create a if-else statement block (if ... { ... } else ...)"
+	},
+	"while": {
+		"prefix": ["while"],
+		"body": [
+			"while $1 {\n\t$2\n}"
+		],
+		"description": "Create a while loop (while ... { ... })"
+	}
+}
