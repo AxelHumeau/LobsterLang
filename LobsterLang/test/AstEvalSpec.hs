@@ -209,9 +209,9 @@ spec = do
         it "Index on not a list 3" $ do
             evalAst [] (Call "!!" [AST.Value 0, AST.Value 0]) `shouldBe` (Left "One or more parameters of binary operator '!!' is invalid", [])
         it "Check length empty list" $ do
-            evalAst [] (Call "len" [AST.List []]) `shouldBe` (Right (Just (AST.Value 0)), [])
+            evalAst [] (Call "~" [AST.List []]) `shouldBe` (Right (Just (AST.Value 0)), [])
         it "Check non empty list" $ do
-            evalAst [] (Call "len" [AST.List [AST.Value 5, AST.String "blegh"]]) `shouldBe` (Right (Just (AST.Value 2)), [])
+            evalAst [] (Call "~" [AST.List [AST.Value 5, AST.String "blegh"]]) `shouldBe` (Right (Just (AST.Value 2)), [])
         it "Check append" $ do
             evalAst [] (Call "++" [AST.List [AST.Value 5, AST.String "blegh"], AST.Value 8]) `shouldBe` (Right (Just (AST.List [AST.Value 5, AST.String "blegh", AST.Value 8])), [])
         it "Check remove occurence" $ do
