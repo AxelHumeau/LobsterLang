@@ -1,5 +1,5 @@
 ## The Syntax of Lobsterlang in Backus-Naur Form
-
+```bnf
 <declarator>                        ::= <direct-declarator>
 
 <parameter-type-list>               ::= <parameter-list>
