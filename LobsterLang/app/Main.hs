@@ -75,6 +75,7 @@ checkArgs ("-e":file:_) = CompiletoVm.makeConvert file
                         >>= \instructions -> trace ("instructions to execute" ++ show instructions) print (Vm.exec 0 [] [] instructions [])
 checkArgs (file:_) = either
                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
+--                        (compileLobster file)
                         (compileFile file)
                         =<< (try (readFile file) :: IO (Either SomeException String))
 
