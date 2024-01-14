@@ -73,6 +73,7 @@ test-suite LobsterLang-test
       AstEvalSpec
       AstOptimizerSpec
       CompilerSpec
+      ParserSpec
       VmSpec
       Paths_LobsterLang
   autogen-modules:

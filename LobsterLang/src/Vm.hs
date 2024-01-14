@@ -187,7 +187,7 @@ type Stack = [Value]
 type Inst = [Instruction]
 type Arg = [Value]
 type Func = [Instruction]
-type Env = [(String, Value)]
+type Env = [(String, Value, Int)]
 
 makeOperation :: Operator -> Stack -> Either String Stack
 makeOperation Add stack = case Stack.pop stack of
@@ -326,12 +326,23 @@ isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
 isBoolVal _ = False
 
-isInEnv :: String -> Env -> Maybe Value
-isInEnv _ [] = Nothing
-isInEnv s (xs:as)
-    | fst xs == s = Just (snd xs)
-    | fst xs /= s = isInEnv s as
-isInEnv _ _ = Nothing
+isInEnv :: String -> Int -> Env -> Maybe Value
+isInEnv _ _ [] = Nothing
+isInEnv s d ((name, val, depth):as)
+    | name == s && (depth == 0 || depth == d) = Just val
+    | otherwise = isInEnv s d as
+
+updateInEnv :: String -> Int -> Value -> Env -> Env
+updateInEnv _ _ _ [] = []
+updateInEnv s d nv ((name, val, depth):as)
+    | name == s && (depth == 0 || depth == d) = (name, nv, depth) : as
+    | otherwise = (name, val, depth) : updateInEnv s d nv as
+
+clearUntilDepth :: Env -> Int -> Env
+clearUntilDepth [] _ = []
+clearUntilDepth ((name, val, depth):as) d
+    | depth > d = clearUntilDepth as d
+    | otherwise = (name, val, depth):as
 
 createList :: Int -> Stack -> [Value] -> (Stack, [Value])
 createList 0 stack val = (stack, val)
@@ -339,76 +350,78 @@ createList n stack val = case Stack.pop stack of
     (Nothing, _) -> (stack, val)
     (Just x, stack1) -> createList (n - 1) stack1 (val ++ [x])
 
-exec :: Env -> Arg -> Inst -> Stack -> Either String Value
-exec _ _ (Call : _) [] = Left "Error: stack is empty"
-exec env arg (Call : xs) stack = case Stack.pop stack of
-        (Nothing, _) -> Left "Error: stack is empty"
+exec :: Int -> Env -> Arg -> Inst -> Stack -> (Either String Value, Env)
+exec _ _ _ (Call : _) [] = (Left "Error: stack is empty", [])
+exec depth env arg (Call : xs) stack = case Stack.pop stack of
+        (Nothing, _) -> (Left "Error: stack is empty", env)
         (Just (Op x), stack1)  -> case makeOperation x stack1 of
-               Left err -> Left err
-               Right newstack -> exec env arg xs newstack
-        (Just (Function body 0), stack1) -> case exec env [] body [] of
-                Left err -> Left err
-                Right val -> exec env arg xs (Stack.push stack1 val)
+               Left err -> (Left err, env)
+               Right newstack -> exec depth env arg xs newstack
+        (Just (Function body 0), stack1) -> case exec (depth + 1) env [] body [] of
+                (Left err, _) -> (Left err, env)
+                (Right val, env') -> exec depth (clearUntilDepth env' depth) arg xs (Stack.push stack1 val)
         (Just (Function body nb), stack1) -> case Stack.pop stack1 of
             (Just (IntVal nb'), stack2)
-                | nb' == 0 -> exec env arg xs (Stack.push stack2 (Function body nb))
-                | nb < nb' -> Left "Error: too much arguments given"
+                | nb' == 0 -> exec depth env arg xs (Stack.push stack2 (Function body nb))
+                | nb < nb' -> (Left "Error: too much arguments given", env)
                 | otherwise -> case Stack.pop stack2 of
-                    (Just v, stack3) -> exec env arg (Call:xs)
+                    (Just v, stack3) -> exec depth env arg (Call:xs)
                         (Stack.push
                             (Stack.push stack3 (IntVal (nb' - 1)))
                             (Function (Push v:PutArg:body) (nb - 1)))
-                    (Nothing, _) -> Left "Error: stack is empty"
-            (_, _) -> Left "Error: stack is invalid for a function call"
-        (Just a, _) -> Left ("Error: not an Operation or a function " ++ show a)
-exec _ [] (PushArg _:_) _ = Left "Error: no Arg"
-exec env arg (PushArg x:xs) stack
-    | x < 0 = Left "Error index out of range"
-    | x >= length arg = Left "Error: index out of range"
-    | otherwise = exec env arg xs (Stack.push stack (arg !! x))
-exec env arg (PushList x:xs) stack
-    | x < 0 = Left "Error: index out of range"
-    | x > length stack = Left "Error: index out of range"
-    | otherwise = exec env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
-exec [] _ (PushEnv _:_) _ = Left "Error: no Env"
-exec env arg (PushEnv x:xs) stack =  case isInEnv x env of
-    Nothing -> Left "Error: not in environment"
-    Just (BoolVal b) -> exec env arg  (Push (BoolVal b):xs) stack
-    Just (IntVal i) -> exec env arg  (Push (IntVal i):xs) stack
-    Just (CharVal c) -> exec env arg  (Push (CharVal c):xs) stack
-    Just (StringVal str) -> exec env arg  (Push (StringVal str):xs) stack
-    Just (Op op) -> exec env arg (Push (Op op):xs) stack
-    Just (Function func nb) -> exec env arg (Push (Function func nb):xs) stack
-    Just (ListVal list) -> exec env arg (Push (ListVal list):xs) stack
-exec env arg (Push val:xs) stack = exec env arg xs (Stack.push stack val)
-exec env arg (PutArg:xs) stack = case Stack.pop stack of
-    (Nothing, _) -> Left "Error: stack is empty"
-    (Just val, stack1) -> exec env (arg ++ [val]) xs stack1
-exec env arg (JumpIfFalse val:xs) stack
-  | Prelude.null xs = Left "Error: no jump possible"
-  | Prelude.null stack = Left "Error: stack is empty"
-  | val < 0 = Left "Error: invalid jump value"
-  | val > length xs = Left "Error: invalid jump value"
-  | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal True = exec env arg xs stack
-  | otherwise = exec env arg (Prelude.drop val xs) stack
-exec env arg (JumpIfTrue val:xs) stack
-  | Prelude.null xs = Left "Error: no jump possible"
-  | Prelude.null stack = Left "Error: stack is empty"
-  | val < 0 = Left "Error: invalid jump value"
-  | val > length xs = Left "Error: invalid jump value"
-  | not (isBoolVal (Stack.top stack)) = Left "Error: not bool"
-  | (head stack) == BoolVal False = exec env arg xs stack
-  | otherwise = exec env arg (Prelude.drop val xs) stack
-exec env arg (Jump val:xs) stack
-  | Prelude.null xs = Left "Error: no jump possible"
-  | val < 0 = Left "Error: invalid jump value"
-  | val > length xs = Left "Error: invalid jump value"
-  | otherwise = exec env arg (Prelude.drop val xs) stack
-exec env arg (Define str:xs) stack = case Stack.pop stack of
-    (Nothing, _) -> Left "Error: stack is empty"
-    (Just val, stack1) -> exec (env ++ [(str, val)]) arg xs stack1
-exec _ _ (Ret : _) stack = case Stack.top stack of
-    Just x -> Right x
-    Nothing -> Left "Error: stack is empty"
-exec _ _ [] _ = Left "list no instruction found"
+                    (Nothing, _) -> (Left "Error: stack is empty", env)
+            (_, _) -> (Left "Error: stack is invalid for a function call", env)
+        (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a), env)
+exec _ _ [] (PushArg _:_) _ = (Left "Error: no Arg", [])
+exec depth env arg (PushArg x:xs) stack
+    | x < 0 = (Left "Error index out of range", env)
+    | x >= length arg = (Left "Error: index out of range", env)
+    | otherwise = exec depth env arg xs (Stack.push stack (arg !! x))
+exec depth env arg (PushList x:xs) stack
+    | x < 0 = (Left "Error: index out of range", env)
+    | x > length stack = (Left "Error: index out of range", env)
+    | otherwise = exec depth env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
+exec _ [] _ (PushEnv _:_) _ = (Left "Error: no Env", [])
+exec depth env arg (PushEnv x:xs) stack =  case isInEnv x depth env of
+    Nothing -> (Left "Error: not in environment", env)
+    Just (BoolVal b) -> exec depth env arg  (Push (BoolVal b):xs) stack
+    Just (IntVal i) -> exec depth env arg  (Push (IntVal i):xs) stack
+    Just (CharVal c) -> exec depth env arg  (Push (CharVal c):xs) stack
+    Just (StringVal str) -> exec depth env arg  (Push (StringVal str):xs) stack
+    Just (Op op) -> exec depth env arg (Push (Op op):xs) stack
+    Just (Function func nb) -> exec depth env arg (Push (Function func nb):xs) stack
+    Just (ListVal list) -> exec depth env arg (Push (ListVal list):xs) stack
+exec depth env arg (Push val:xs) stack = exec depth env arg xs (Stack.push stack val)
+exec depth env arg (PutArg:xs) stack = case Stack.pop stack of
+    (Nothing, _) -> (Left "Error: stack is empty", env)
+    (Just val, stack1) -> exec depth env (arg ++ [val]) xs stack1
+exec depth env arg (JumpIfFalse val:xs) stack
+  | Prelude.null xs = (Left "Error: no jump possible", env)
+  | Prelude.null stack = (Left "Error: stack is empty", env)
+  | val < 0 = (Left "Error: invalid jump value", env)
+  | val > length xs = (Left "Error: invalid jump value", env)
+  | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
+  | head stack == BoolVal True = exec depth env arg xs stack
+  | otherwise = exec depth env arg (Prelude.drop val xs) stack
+exec depth env arg (JumpIfTrue val:xs) stack
+  | Prelude.null xs = (Left "Error: no jump possible", env)
+  | Prelude.null stack = (Left "Error: stack is empty", env)
+  | val < 0 = (Left "Error: invalid jump value", env)
+  | val > length xs = (Left "Error: invalid jump value", env)
+  | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
+  | head stack == BoolVal False = exec depth env arg xs stack
+  | otherwise = exec depth env arg (Prelude.drop val xs) stack
+exec depth env arg (Jump val:xs) stack
+  | Prelude.null xs = (Left "Error: no jump possible", env)
+  | val < 0 = (Left "Error: invalid jump value", env)
+  | val > length xs = (Left "Error: invalid jump value", env)
+  | otherwise = exec depth env arg (Prelude.drop val xs) stack
+exec depth env arg (Define str:xs) stack = case Stack.pop stack of
+    (Nothing, _) -> (Left "Error: stack is empty", env)
+    (Just val, stack1) -> case isInEnv str depth env of
+        Nothing -> exec depth ((str, val, depth):env) arg xs stack1
+        _ -> exec depth (updateInEnv str depth val env) arg xs stack1
+exec _ env _ (Ret : _) stack = case Stack.top stack of
+    Just x -> (Right x, env)
+    Nothing -> (Left "Error: stack is empty", env)
+exec _ _ _ [] _ = (Left "list no instruction found", [])
