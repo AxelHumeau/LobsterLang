@@ -15,6 +15,8 @@ import System.Environment (getArgs)
 import qualified AstEval
 import qualified AstOptimizer
 import qualified Compiler
+import qualified Vm
+import qualified CompiletoVm
 import Control.Exception
 import qualified AST
 import AstOptimizer (optimizeAst)
@@ -58,7 +60,7 @@ compileInfo :: String -> [AST.Ast] -> [Scope.ScopeMb] -> IO ()
 compileInfo _ [] _ = putStr ""
 compileInfo filename list stack = checkCompileInfo (optimizeAst stack list False) [] >>= \res -> case sequence res of
         Left _ -> exitWith (ExitFailure 84)
-        Right value -> Compiler.compile (map AstOptimizer.fromOptimised value) (filename ++ ".o") True
+        Right value -> Compiler.compile (map AstOptimizer.fromOptimised value) (filename ++ "o") True
 
 compileFile :: String -> String -> IO ()
 compileFile file s = case runParser parseLobster (0, 0) s of
@@ -68,6 +70,8 @@ compileFile file s = case runParser parseLobster (0, 0) s of
 
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []
+checkArgs ("-e":file:_) = CompiletoVm.makeConvert file
+                        >>= \instructions -> print (fst (Vm.exec 0 [] [] instructions []))
 checkArgs (file:_) = either
                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
                         (compileFile file)
