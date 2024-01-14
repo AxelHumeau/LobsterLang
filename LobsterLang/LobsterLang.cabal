@@ -29,6 +29,7 @@ library
       AstEval
       AstOptimizer
       Compiler
+      CompiletoVm
       Parse
       Scope
       SExpr
