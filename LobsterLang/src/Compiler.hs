@@ -180,54 +180,54 @@ astToInstructions (Symbol symbolName (Just symbolArgs)) =
   [PushSym symbolName (Just symbolArgsInstructions)]
   where
     symbolArgsInstructions =
-      foldr (((:) . \b -> b ++ [PutArg]) . astToInstructions) [] symbolArgs
+      map astToInstructions symbolArgs
 astToInstructions (String stringValue) = [PushStr stringValue]
 astToInstructions (List values) =
   [PushList (length valuesInstructions) valuesInstructions]
   where
     valuesInstructions = map astToInstructions values
 astToInstructions (AST.Call "+" args) =
-  concatMap astToInstructions args ++ [Add]
+  reverse (concatMap astToInstructions args) ++ [Add]
 astToInstructions (AST.Call "-" args) =
-  concatMap astToInstructions args ++ [Sub]
+  reverse (concatMap astToInstructions args) ++ [Sub]
 astToInstructions (AST.Call "*" args) =
-  concatMap astToInstructions args ++ [Mul]
+  reverse (concatMap astToInstructions args) ++ [Mul]
 astToInstructions (AST.Call "/" args) =
-  concatMap astToInstructions args ++ [Div]
+  reverse (concatMap astToInstructions args) ++ [Div]
 astToInstructions (AST.Call "%" args) =
-  concatMap astToInstructions args ++ [Mod]
+  reverse (concatMap astToInstructions args) ++ [Mod]
 astToInstructions (AST.Call "^^" args) =
-  concatMap astToInstructions args ++ [XorB]
+  reverse (concatMap astToInstructions args) ++ [XorB]
 astToInstructions (AST.Call "==" args) =
-  concatMap astToInstructions args ++ [Eq]
+  reverse (concatMap astToInstructions args) ++ [Eq]
 astToInstructions (AST.Call "!=" args) =
-  concatMap astToInstructions args ++ [NotEq]
+  reverse (concatMap astToInstructions args) ++ [NotEq]
 astToInstructions (AST.Call "<" args) =
-  concatMap astToInstructions args ++ [Less]
+  reverse (concatMap astToInstructions args) ++ [Less]
 astToInstructions (AST.Call "<=" args) =
-  concatMap astToInstructions args ++ [LessEq]
+  reverse (concatMap astToInstructions args) ++ [LessEq]
 astToInstructions (AST.Call ">" args) =
-  concatMap astToInstructions args ++ [Great]
+  reverse (concatMap astToInstructions args) ++ [Great]
 astToInstructions (AST.Call ">=" args) =
-  concatMap astToInstructions args ++ [GreatEq]
+  reverse (concatMap astToInstructions args) ++ [GreatEq]
 astToInstructions (AST.Call "&&" args) =
-  concatMap astToInstructions args ++ [And]
+  reverse (concatMap astToInstructions args) ++ [And]
 astToInstructions (AST.Call "||" args) =
-  concatMap astToInstructions args ++ [Or]
+  reverse (concatMap astToInstructions args) ++ [Or]
 astToInstructions (AST.Call "!" args) =
-  concatMap astToInstructions args ++ [Not]
+  reverse (concatMap astToInstructions args) ++ [Not]
 astToInstructions (AST.Call "$" args) =
-  concatMap astToInstructions args ++ [Then]
+  reverse (concatMap astToInstructions args) ++ [Then]
 astToInstructions (AST.Call "@" args) =
-  concatMap astToInstructions args ++ [ToStr]
+  reverse (concatMap astToInstructions args) ++ [ToStr]
 astToInstructions (AST.Call "++" args) =
-  concatMap astToInstructions args ++ [Apnd]
+  reverse (concatMap astToInstructions args) ++ [Apnd]
 astToInstructions (AST.Call "--" args) =
-  concatMap astToInstructions args ++ [RemAllOcc]
+  reverse (concatMap astToInstructions args) ++ [RemAllOcc]
 astToInstructions (AST.Call "!!" args) =
-  concatMap astToInstructions args ++ [Get]
+  reverse (concatMap astToInstructions args) ++ [Get]
 astToInstructions (AST.Call "~" args) =
-  concatMap astToInstructions args ++ [Len]
+  reverse (concatMap astToInstructions args) ++ [Len]
 astToInstructions (AST.Call _ _) = [NoOp]
 astToInstructions (Define symbolName value) =
   let symbolValue = astToInstructions value
@@ -255,7 +255,7 @@ astToInstructions (FunctionValue argsNames funcBody (Just argsValues)) =
     funcBodyInstructions =
       _resolveFunctionPushArgs (astToInstructions funcBody ++ [Ret]) argsNames
     argsValuesInstructions =
-      Just (foldr (((:) . \b -> b ++ [PutArg]) . astToInstructions) [] argsValues)
+      Just (map astToInstructions argsValues)
     nbArgsValuesInstructions = _instructionListLengths argsValuesInstructions
 astToInstructions (AST.Cond cond trueBlock (Just falseBlock)) =
   [ Compiler.Cond
@@ -477,6 +477,7 @@ _compileInstruction (PushSym symbolName Nothing) =
   >> _putString symbolName
 _compileInstruction (PushSym symbolName (Just symbolArgs)) =
   _fputList compileInstructions symbolArgs
+  >> _putOpCodeFromInstruction (PushI (length symbolArgs))
   >> _putInt32 (length symbolArgs)
   >> _putOpCodeFromInstruction (PushSym symbolName (Just symbolArgs))
   >> _putString symbolName >> _putOpCodeFromInstruction Compiler.Call
@@ -552,6 +553,7 @@ _compileInstruction (Fnv nbArgsNames argsNames nbFuncBodyInstructions
   funcBodyInstructions nbArgsValuesInstructions
   (Just argsValuesInstructions)) =
     _fputList compileInstructions argsValuesInstructions
+    >> _putOpCodeFromInstruction (PushI (length argsValuesInstructions))
     >> _putInt32 (length argsValuesInstructions)
     >> _putOpCodeFromInstruction (Fnv nbArgsNames argsNames
     nbFuncBodyInstructions funcBodyInstructions nbArgsValuesInstructions

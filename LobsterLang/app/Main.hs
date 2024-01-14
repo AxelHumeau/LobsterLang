@@ -21,6 +21,7 @@ import Control.Exception
 import qualified AST
 import AstOptimizer (optimizeAst)
 
+import Debug.Trace
 
 lobsterNotHappy :: String -> String -> String -> String
 lobsterNotHappy color state str = "\ESC[" ++ color ++ "m\ESC[1mThe lobster is " ++ state ++ ": " ++ str ++ "\ESC[0m"
@@ -71,7 +72,7 @@ compileFile file s = case runParser parseLobster (0, 0) s of
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []
 checkArgs ("-e":file:_) = CompiletoVm.makeConvert file
-                        >>= \instructions -> print (fst (Vm.exec 0 [] [] instructions []))
+                        >>= \instructions -> trace (show instructions) print (Vm.exec 0 [] [] instructions [])
 checkArgs (file:_) = either
                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
                         (compileFile file)
