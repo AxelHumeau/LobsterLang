@@ -5,7 +5,7 @@
 -- CompiletoVm
 -}
 
-module CompiletoVm (convert, makeConvert, getString, getList, getDefinedValue, getInstruction) where
+module CompiletoVm (convert, makeConvert, getString, getList, getDefinedValue, getFnv, getArg) where
 
 import Data.Binary
 import Data.Binary.Get
@@ -60,31 +60,7 @@ convert file inst = case (decodeOrFail file :: Either (BIN.ByteString, ByteOffse
                         Right (rema, _, _) -> rema
                     symbolValue = fst (getDefinedValue nbinstructions fileAfternbinst [])
                     reminfile = snd (getDefinedValue nbinstructions fileAfternbinst [])
-        -- -- nbnamearg -> namearg -> nbinstructions -> inst -> nbvalue -> value
-        -- Compiler.Fnv _ _ _ _ _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --     Left _ -> return []
-        --     Right (rema, _, val) -> convert fileremaining (inst ++ putArg ++ [Vm.Push (Vm.Function functionInstruction (fromIntegral (val :: Int32) :: Int))] ++ call)
-        --         where
-        --             nbinst = case (decodeOrFail rema :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --                 Left _ -> 0
-        --                 Right (_, _, ninst) -> (fromIntegral (ninst :: Int32) :: Int)
-        --             fileAfternInst = case (decodeOrFail rema :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --                 Left _ -> rema
-        --                 Right (remain, _, _) -> remain
-        --             fileAfterInst = snd (getInstruction nbinst fileAfternInst [])
-        --             functionInstruction = fst (getInstruction nbinst fileAfternInst [])
-        --             nbputarg = case (decodeOrFail fileAfterInst :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --                 Left _ -> 0
-        --                 Right (_, _, narg) -> (fromIntegral (narg :: Int32) :: Int)
-        --             fileAfternarg = case (decodeOrFail fileAfterInst :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
-        --                 Left _ -> fileAfterInst
-        --                 Right (fileremain, _, _) -> fileremain
-        --             call | nbputarg <= (-1) = []
-        --                  | otherwise = [Vm.Call]
-        --             putArg | nbputarg <= 0 = []
-        --                    |
-        --             fileremaining = -- reste du fichier
-        -------------------------------
+        Compiler.Fnv _ _ _ _ _ _ -> convert (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
         Compiler.Call -> convert remainingfile (inst ++ [Vm.Call])
         Compiler.Ret -> convert remainingfile (inst ++ [Vm.Ret])
         Compiler.Add ->  convert remainingfile (inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
@@ -104,6 +80,7 @@ convert file inst = case (decodeOrFail file :: Either (BIN.ByteString, ByteOffse
         Compiler.Apnd -> convert remainingfile (inst ++ [Vm.Push (Op Vm.Append), Vm.Call])
         Compiler.RemAllOcc -> convert remainingfile (inst ++ [Vm.Push (Op Vm.RmOcc), Vm.Call])
         Compiler.Get -> convert remainingfile (inst ++ [Vm.Push (Op Vm.Get), Vm.Call])
+        Compiler.Len -> convert remainingfile (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
         Compiler.Neg -> convert remainingfile (inst)
         Compiler.PushList _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> return []
@@ -116,8 +93,104 @@ getString nbytes byteString s = case (decodeOrFail byteString :: Either (BIN.Byt
     Right (remainingfile, _, a) -> getString (nbytes - 1) remainingfile (s ++ [a])
     Left _ -> (s, byteString)
 
-getInstruction :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
-getInstruction 0 byteString inst = (inst, byteString)
+getFnv :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
+getFnv 0 byteString inst = (inst, byteString)
+-- start
+getFnv (-1) byteString inst = case (decodeOrFail byteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+        Left _ -> (inst, byteString)
+        Right (nByteString, _, val) -> (getFnv 1 byteStringAfterInst (inst ++ [Vm.Push (Vm.Function functionInstruction (fromIntegral (val :: Int32) :: Int))]))
+            where
+                nbinstruction = case (decodeOrFail nByteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+                    Left _ -> 0
+                    Right (_, _, valu) -> (fromIntegral (valu :: Int32) :: Int)
+                byteStringafterNbInst = case (decodeOrFail nByteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+                    Left _ -> nByteString
+                    Right (afterNbInst, _, _) -> afterNbInst
+                functionInstruction = fst (getInstructionFunc nbinstruction byteStringafterNbInst [])
+                byteStringAfterInst = snd (getInstructionFunc nbinstruction byteStringafterNbInst [])
+getFnv 1 byteString inst = case (decodeOrFail byteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+    Left _ -> (inst, byteString)
+    Right (nByteString, _, (-1)) -> getFnv 0 nByteString (inst)
+    Right (nByteString, _, nbval) -> getFnv 0 byteStringEnd (putArg ++ inst ++ [Vm.Call])
+        where
+            putArg = fst (getArg (fromIntegral (nbval :: Int32) :: Int) nByteString []) ++ (replicate (fromIntegral (nbval :: Int32) :: Int) (Vm.PutArg))
+            byteStringEnd = snd (getArg (fromIntegral (nbval :: Int32) :: Int) nByteString [])
+getFnv _ byteString inst = (inst, byteString)
+
+
+getArg :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
+getArg 0 byteString inst = (inst, byteString)
+getArg nbInstruction byteString inst = case (decodeOrFail byteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
+    Left _ -> ([], byteString)
+    Right (remainingfile, _, opcode) -> case toEnum (fromIntegral opcode) of
+        PushI _-> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], byteString)
+            Right (remfile, _, val) -> getArg (nbInstruction - 1) remfile (inst ++ [(Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int)))])
+        PushB _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, 1) -> getArg (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal True)])
+            Right (remfile, _, 0) -> getArg (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal False)])
+            Right (_, _, _) -> (inst, byteString)
+        Compiler.PushStr _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, byteToRead) -> getArg (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [Vm.Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
+        Compiler.PushSym _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, byteToRead) -> getArg (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [PushEnv (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))])
+        Compiler.PushList _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], byteString)
+            Right (remfile, _, lenList) -> getArg (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+        Compiler.PushArg _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], remainingfile)
+            Right (remfile, _, val) -> getArg (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
+        Compiler.Fnv _ _ _ _ _ _ -> getArg (nbInstruction - 1) (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
+        _ -> (inst, byteString)
+
+getInstructionFunc :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
+getInstructionFunc 0 byteString inst = (inst, byteString)
+getInstructionFunc nbInstruction byteString inst = case (decodeOrFail byteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
+    Left _ -> ([], byteString)
+    Right (remainingfile, _, opcode) -> case toEnum (fromIntegral opcode) of
+        PushI _-> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], byteString)
+            Right (remfile, _, val) -> getInstructionFunc (nbInstruction - 1) remfile (inst ++ [(Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int)))])
+        PushB _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Word8)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, 1) -> getInstructionFunc (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal True)])
+            Right (remfile, _, 0) -> getInstructionFunc (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal False)])
+            Right (_, _, _) -> (inst, byteString)
+        Compiler.PushStr _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, byteToRead) -> getInstructionFunc (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [Vm.Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
+        Compiler.PushSym _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> (inst, byteString)
+            Right (remfile, _, byteToRead) -> getInstructionFunc (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [PushEnv (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))])
+        Compiler.PushList _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], remainingfile)
+            Right (remfile, _, lenList) -> getInstructionFunc (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+        Compiler.PushArg _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], remainingfile)
+            Right (remfile, _, val) -> getInstructionFunc (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
+        Compiler.Add ->  getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
+        Compiler.Sub -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Sub), Vm.Call])
+        Compiler.Mul -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Mul), Vm.Call])
+        Compiler.Div -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Div), Vm.Call])
+        Compiler.Mod -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Mod), Vm.Call])
+        Compiler.Eq -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Eq), Vm.Call])
+        Compiler.Less -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Less), Vm.Call])
+        Compiler.LessEq -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.LessEq), Vm.Call])
+        Compiler.Great -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Great), Vm.Call])
+        Compiler.GreatEq -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.GreatEq), Vm.Call])
+        Compiler.And -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.And), Vm.Call])
+        Compiler.Or ->getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Or), Vm.Call])
+        Compiler.Not -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Not), Vm.Call])
+        Compiler.ToStr -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.ToString), Vm.Call])
+        Compiler.Apnd -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Append), Vm.Call])
+        Compiler.RemAllOcc -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.RmOcc), Vm.Call])
+        Compiler.Get -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Get), Vm.Call])
+        Compiler.Len -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
+        Compiler.Fnv _ _ _ _ _ _ -> getInstructionFunc (nbInstruction - 1) (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
+        _ -> (inst, byteString)
 
 getDefinedValue :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
 getDefinedValue 0 byteString inst = (inst, byteString)
@@ -141,6 +214,9 @@ getDefinedValue nbInstruction byteString inst = case (decodeOrFail byteString ::
         Compiler.PushList _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> ([], remainingfile)
             Right (remfile, _, lenList) -> getDefinedValue (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+        Compiler.PushArg _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], remainingfile)
+            Right (remfile, _, val) -> getDefinedValue (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
         Compiler.Add ->  getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
         Compiler.Sub -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Sub), Vm.Call])
         Compiler.Mul -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Mul), Vm.Call])
@@ -158,6 +234,8 @@ getDefinedValue nbInstruction byteString inst = case (decodeOrFail byteString ::
         Compiler.Apnd -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Append), Vm.Call])
         Compiler.RemAllOcc -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.RmOcc), Vm.Call])
         Compiler.Get -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Get), Vm.Call])
+        Compiler.Len -> getDefinedValue (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
+        Compiler.Fnv _ _ _ _ _ _ -> getDefinedValue (nbInstruction - 1) (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
         _ -> (inst, byteString)
 
 getList :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
@@ -182,4 +260,7 @@ getList nbInstruction byteString inst = case (decodeOrFail byteString :: Either 
         Compiler.PushList _ _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
             Left _ -> ([], remainingfile)
             Right (remfile, _, lenList) -> getList (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+        Compiler.PushArg _ -> case (decodeOrFail remainingfile :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
+            Left _ -> ([], remainingfile)
+            Right (remfile, _, val) -> getList (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
         _ -> (inst, byteString)

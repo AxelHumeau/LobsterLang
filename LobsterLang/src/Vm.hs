@@ -125,7 +125,7 @@ instance Show Operator where
     show Get = "!!"
     show RmOcc = "--"
     show Append = "++"
-    show Len = "Len"
+    show Len = "~"
 
 instance Eq Operator where
     Add == Add = True
