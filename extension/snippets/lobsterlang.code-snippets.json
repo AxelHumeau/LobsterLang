@@ -9,43 +9,43 @@
 	"function": {
 		"prefix": ["fn", "function"],
 		"body": [
-			"fn $1(| $2 |) {\n\t$3\n};"
+			"fn $1(| $2 |) {|\n\t$3\n|};"
 		],
-		"description": "Create a lobster function (fn ...(| ... |) {...};)"
+		"description": "Create a lobster function (fn ...(| ... |) {|...|};)"
 	},
 	"lambda": {
 		"prefix": ["lambda"],
 		"body": [
-			"$1 = lambda (| $2 |) {$3};"
+			"$1 = lambda (| $2 |) {|$3|};"
 		],
-		"description": "Create a lobster lambda (... = lambda (| ... |) {...};)"
+		"description": "Create a lobster lambda (... = lambda (| ... |) {|...|};)"
 	},
 	"lambda (λ)": {
 		"prefix": ["lambda", "λ"],
 		"body": [
-			"$1 = λ (| $2 |) {$3};"
+			"$1 = λ (| $2 |) {|$3|};"
 		],
-		"description": "Create a lobster lambda (... = λ (| ... |) {...};)"
+		"description": "Create a lobster lambda (... = λ (| ... |) {|...|};)"
 	},
 	"if": {
 		"prefix": ["if"],
 		"body": [
-			"if $1 {\n\t$2\n}"
+			"if $1 {|\n\t$2\n|}"
 		],
-		"description": "Create a if statement block (if ... { ... })"
+		"description": "Create a if statement block (if ... {| ... |})"
 	},
 	"if else": {
 		"prefix": ["if else"],
 		"body": [
-			"if $1 {\n\t$2\n} else $3"
+			"if $1 {|\n\t$2\n|} else $3"
 		],
-		"description": "Create a if-else statement block (if ... { ... } else ...)"
+		"description": "Create a if-else statement block (if ... {| ... |} else ...)"
 	},
 	"while": {
 		"prefix": ["while"],
 		"body": [
-			"while $1 {\n\t$2\n}"
+			"while $1 {|\n\t$2\n|}"
 		],
-		"description": "Create a while loop (while ... { ... })"
+		"description": "Create a while loop (while ... {| ... |})"
 	}
 }

@@ -7,7 +7,7 @@
 
 module AstOptimizer
   ( optimizeAst,
-    fromOptimised,
+    fromOpti,
     AstError (..),
     AstOptimised (..),
   )
@@ -51,23 +51,15 @@ optimizeAst stack ((List asts) : xs) inF =
   case sequence (optimizeAst stack asts inF) of
     Left err -> Left err : optimizeAst stack xs inF
     Right opAst ->
-      Right (Result (List (map fromOptimised opAst)))
+      Right (Result (List (map fromOpti opAst)))
         : optimizeAst stack xs inF
 optimizeAst stack ((Define n ast) : xs) inF =
   checkOptiAfterDef stack (optimizeAst stack [ast] inF) n ast xs inF
 optimizeAst stack ((Symbol s Nothing) : xs) inF
-  | inF =
-      Right (Result (Symbol s Nothing)) : optimizeAst stack xs inF
+  | inF = Right (Result (Symbol s Nothing)) : optimizeAst stack xs inF
   | otherwise = case getVarInScope stack s of
-      Nothing ->
-        Left
-          ( Error
-              ( "Symbol '"
-                  ++ s
-                  ++ "' doesn't exist in the current or global scope"
-              )
-              (Symbol s Nothing)
-          )
+      Nothing -> Left (Error ("Symbol '" ++ s ++
+        "' doesn't exist in the current or global scope") (Symbol s Nothing))
           : optimizeAst stack xs inF
       Just _ -> Right (Result (Symbol s Nothing)) : optimizeAst stack xs inF
 optimizeAst stack ((Symbol s (Just asts)) : xs) inF
@@ -76,11 +68,8 @@ optimizeAst stack ((Symbol s (Just asts)) : xs) inF
       (evalAst stack (Symbol s (Just asts))) inF
   | otherwise = case sequence (optimizeAst stack asts inF) of
       Left err -> Left err : optimizeAst stack xs inF
-      Right opAst ->
-        optimizeAst
-          stack
-          (Symbol s (Just (map fromOptimised opAst)) : xs)
-          inF
+      Right opAst -> optimizeAst stack
+          (Symbol s (Just (map fromOpti opAst)) : xs) inF
 optimizeAst stack ((Call op asts) : xs) inF
   | foldr ((&&) . isUnoptimizable) True asts
       && foldr ((&&) . isValue) True asts =
@@ -90,11 +79,7 @@ optimizeAst stack ((Call op asts) : xs) inF
       (evalAst stack (Call op asts)) inF
   | otherwise = case sequence (optimizeAst stack asts inF) of
       Left err -> Left err : optimizeAst stack xs inF
-      Right asts' ->
-        optimizeAst
-          stack
-          (Call op (map fromOptimised asts') : xs)
-          inF
+      Right asts' -> optimizeAst stack (Call op (map fromOpti asts') : xs) inF
 optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs) inF
   | not (isUnoptimizable condAst) = case optimizeAst stack [condAst] inF of
       [Left err] -> Left err : optimizeAst stack xs inF
@@ -123,11 +108,8 @@ optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs) inF
         Right (Warning "Condition is always true" trueAst)
           : optimizeAst stack xs inF
       Boolean False ->
-        Right
-          ( Warning
-              "Condition is always false"
-              (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst)
-          )
+        Right (Warning "Condition is always false"
+          (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst))
           : optimizeAst stack xs inF
       _ ->
         Right (Result (Cond condAst trueAst mFalseAst))
@@ -139,8 +121,7 @@ optimizeAst stack (FunctionValue params ast Nothing : xs) inF =
       Right (Result (FunctionValue params ast' Nothing))
         : optimizeAst stack xs inF
     [Right (Warning mes ast')] ->
-      Right
-        (Warning mes (FunctionValue params ast' Nothing))
+      Right (Warning mes (FunctionValue params ast' Nothing))
         : optimizeAst stack xs inF
     _ -> shouldntHappen stack (FunctionValue params ast Nothing : xs) inF
 optimizeAst stack (FunctionValue params ast (Just asts) : xs) inF
@@ -161,7 +142,7 @@ optimizeAst stack (FunctionValue params ast (Just asts) : xs) inF
         Right asts' ->
           optimizeAst
             stack
-            (FunctionValue params ast (Just (map fromOptimised asts')) : xs)
+            (FunctionValue params ast (Just (map fromOpti asts')) : xs)
             inF
   | length params > length asts =
       case evalAst stack (FunctionValue params ast (Just asts)) of
@@ -221,9 +202,9 @@ isValue (FunctionValue _ _ Nothing) = True
 isValue _ = False
 
 -- | Get the `Ast` contained in a `AstOptimised`
-fromOptimised :: AstOptimised -> Ast
-fromOptimised (Warning _ ast) = ast
-fromOptimised (Result ast) = ast
+fromOpti :: AstOptimised -> Ast
+fromOpti (Warning _ ast) = ast
+fromOpti (Result ast) = ast
 
 -- | Handle cases where the optimization depends on
 -- the result of a evaluation of the `Ast` and it have to return evaluated
