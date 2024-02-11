@@ -15,13 +15,11 @@ import System.Environment (getArgs)
 import qualified AstEval
 import qualified AstOptimizer
 import qualified Compiler
-import qualified Vm
 import qualified CompiletoVm
 import Control.Exception
 import qualified AST
 import AstOptimizer (optimizeAst)
-
-import Debug.Trace
+import Vm
 
 lobsterNotHappy :: String -> String -> String -> String
 lobsterNotHappy color state str = "\ESC[" ++ color ++ "m\ESC[1mThe lobster is " ++ state ++ ": " ++ str ++ "\ESC[0m"
@@ -71,8 +69,16 @@ compileFile file s = case runParser parseLobster (0, 0) s of
 
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []
-checkArgs ("-e":file:_) = CompiletoVm.makeConvert file
-                        >>= \instructions -> trace ("instructions to execute" ++ show instructions) print (Vm.exec 0 [] [] instructions [])
+checkArgs ("-e":file:_) = putStr "Result: " >> CompiletoVm.makeConvert file
+                        >>= \instructions -> case fst (Vm.exec 0 [] [] instructions []) of
+                                Left err -> print err
+                                Right (IntVal res) -> print res
+                                Right (BoolVal res) -> print res
+                                Right (CharVal res) -> print res
+                                Right (StringVal res) -> print res
+                                Right (ListVal res) -> print res
+                                Right (Op res) -> print res
+                                Right (Function res _) -> print res
 checkArgs (file:_) = either
                         (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
                         (compileFile file)

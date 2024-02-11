@@ -25,7 +25,6 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.List
-import Debug.Trace (trace)
 
 data CompileConstants = Null
   | MagicNumber deriving (Show, Eq)
@@ -424,7 +423,7 @@ _resolveFunctionPushArgs [PushSym symbolName (Just args)] argsNames =
     Nothing -> [PushSym symbolName (Just (fmap (`_resolveFunctionPushArgs` argsNames) args))]
 _resolveFunctionPushArgs [Compiler.Cond condInstructions
   nbTrueBlockInstructions trueBlockInstructions
-  (Just falseBlockInstructions)] argsNames = trace (show (_resolveFunctionPushArgs falseBlockInstructions argsNames))
+  (Just falseBlockInstructions)] argsNames =
     [ Compiler.Cond
     (_resolveFunctionPushArgs condInstructions argsNames)
     nbTrueBlockInstructions
@@ -645,5 +644,5 @@ compile ast filepath showInst = if showInst
     >> writeCompiledInstructionsToFile filepath compiledInstructions
   else writeCompiledInstructionsToFile filepath compiledInstructions
   where
-    instructions = trace (show ast) concatMap astToInstructions ast ++ [Ret]
+    instructions = concatMap astToInstructions ast ++ [Ret]
     compiledInstructions = _putInt32 (fromEnum MagicNumber) >> _fputList _compileInstruction instructions

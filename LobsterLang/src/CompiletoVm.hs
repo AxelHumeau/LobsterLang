@@ -13,7 +13,6 @@ import qualified Data.ByteString.Lazy as BIN
 import GHC.Int
 import Vm
 import Compiler
-import Debug.Trace (trace)
 
 makeConvert :: String -> IO Inst
 makeConvert path = BIN.readFile path >>= \filepath -> case (decodeOrFail filepath :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
@@ -113,7 +112,7 @@ getFnv (-1) byteString inst = case (decodeOrFail byteString :: Either (BIN.ByteS
                 byteStringafterNbInst = case (decodeOrFail nByteString :: Either (BIN.ByteString, ByteOffset, String) (BIN.ByteString, ByteOffset, Int32)) of
                     Left _ -> nByteString
                     Right (afterNbInst, _, _) -> afterNbInst
-                functionInstruction = trace ("fucntion instruction: " ++ show nbinstruction) fst (getInstructionFunc nbinstruction byteStringafterNbInst [])
+                functionInstruction = fst (getInstructionFunc nbinstruction byteStringafterNbInst [])
                 byteStringAfterInst = snd (getInstructionFunc nbinstruction byteStringafterNbInst [])
 getFnv _ byteString inst = (inst, byteString)
 
@@ -199,7 +198,7 @@ getInstructionFunc nbInstruction byteString inst = case (decodeOrFail byteString
         Compiler.Len -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
         Compiler.PutArg -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.PutArg])
         Compiler.Ret -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Ret])
-        Compiler.Fnv {} -> trace (show "here") getInstructionFunc (nbInstruction - 1) (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
+        Compiler.Fnv {} -> getInstructionFunc (nbInstruction - 1) (snd (getFnv (-1) remainingfile [])) (inst ++ (fst (getFnv (-1) remainingfile [])))
         Compiler.Call -> getInstructionFunc (nbInstruction - 1) remainingfile (inst ++ [Vm.Call])
         _ -> (inst, byteString)
 

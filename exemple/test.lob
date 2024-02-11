@@ -5,3 +5,108 @@ if a == 5 {|
 |} else {|
     9
 |}
+
+
+5 + 9 * (| 8 - 7 |)
+
+
+"Hello, world!"
+
+
+true
+false
+
+
+[| 5, "foo", true |] ++ 8
+
+
+
+[| 5, "foo", true |] !! 1
+
+5 >= 9 && 7 != 10
+
+
+@ 9
+!true
+~ [| 5, "foo", true |]
+a = 5 $ a
+
+
+bar = 5 #define a variable
+bar # returns 5
+
+bar = "Hello World"
+bar # return "Hello World"
+
+bar = true
+bar # return true
+
+fn bar(||) {|
+    5
+|}
+bar # return a function
+
+
+bar = 5 # define a variable
+bar # returns 5
+
+fn changeGlobal(||) {|
+    bar = 7 # define a global variable
+    foo = 9
+|}
+
+changeGlobal(||)
+bar # returns 7
+foo # throw an error
+
+
+fn foo(|a, b|) {|
+   a * b
+|}
+
+bar = foo(| 5 |) # returns a new function taking only b as parameter
+
+bar(| 8 |) # equivalent to foo(| 5, 8 |)
+bar(| 9 |) # equivalent to foo(| 5, 9 |)
+
+
+square = λ (| x |) {| x * x |}
+
+add = λ (| a, b |) {| a + b |}
+
+square(| 5 |) # return 25
+
+add(| 2, 9 |) # return 11
+
+abs = lambda (| x |) {|
+    if x < 0 {|
+        x * -1
+    |} else {|
+        x
+    |}
+|}
+
+abs(| -543 |) # return 543
+
+
+foo = 5
+if foo == 5 {|
+    "foo equal 5"
+|} else {|
+    "foo doesn't equal 5"
+|} # returns "foo equal 5"
+
+foo = 8
+a = if foo == 5 {|
+    "foo equal 5"
+|} else {|
+    "foo doesn't equal 5"
+|}
+
+a # return "foo doesn't equal 5"
+
+a = if foo == 5 {|
+    "foo equal 5"
+|} # throw an error due to assignment with no value
+
+
