@@ -60,6 +60,6 @@ spec = do
         it "Check update in function" $ do
             exec 0 [] [] [Push (IntVal 8), Define "a", Push (IntVal 2), Push (IntVal 4), Push (IntVal 2), Push (Function [Vm.PushArg 0, Vm.PushArg 1, Push (Op Vm.Div), Vm.Call, Define "a", PushEnv "a", Ret] 2), Call, Ret] [] `shouldBe` (Right (IntVal 2), [("a", IntVal 2, 0)])
         it "Check usage in wrong scope" $ do
-            exec 0 [] [] [Push (IntVal 5), Define "b", Push (IntVal 2), Push (IntVal 4), Push (IntVal 2), Push (Function [Vm.PushArg 0, Vm.PushArg 1, Push (Op Vm.Div), Vm.Call, Define "a", PushEnv "a", Ret] 2), Call, PushEnv "a", Ret] [] `shouldBe` (Left "Error: not in environment", [("b", IntVal 5, 0)])
+            exec 0 [] [] [Push (IntVal 5), Define "b", Push (IntVal 2), Push (IntVal 4), Push (IntVal 2), Push (Function [Vm.PushArg 0, Vm.PushArg 1, Push (Op Vm.Div), Vm.Call, Define "a", PushEnv "a", Ret] 2), Call, PushEnv "a", Ret] [] `shouldBe` (Left "Error: not in environment a 0", [("b", IntVal 5, 0)])
         it "Check usage in wrong scope (no env)" $ do
             exec 0 [] [] [Push (IntVal 2), Push (IntVal 4), Push (IntVal 2), Push (Function [Vm.PushArg 0, Vm.PushArg 1, Push (Op Vm.Div), Vm.Call, Define "a", PushEnv "a", Ret] 2), Call, PushEnv "a", Ret] [] `shouldBe` (Left "Error: no Env", [])
