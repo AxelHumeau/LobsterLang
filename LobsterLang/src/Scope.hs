@@ -77,7 +77,8 @@ updateVar stack = seekAndUpdate stack (getDepth stack)
 -- | Get the value contained in the variable given by name as a 'String',
 -- return 'Nothing' if the variable don't exist or 'Just' its value
 getVarInScope :: [ScopeMb] -> String -> Maybe Ast
-getVarInScope stack s = getAst =<< seek (isSearchedVar s (getDepth stack)) stack
+getVarInScope stack s =
+  getAst =<< seek (isSearchedVar s (getDepth stack)) stack
 
 -- | Get the 'Ast' at a given 'ScopeMb'
 getAst :: ScopeMb -> Maybe Ast

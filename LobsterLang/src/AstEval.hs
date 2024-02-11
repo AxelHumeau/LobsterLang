@@ -56,7 +56,7 @@ evalAst stack (Define s v) = case defineVar defineFunc stack s v of
 evalAst stack (AST.Value i) = (Right (Just (AST.Value i)), stack)
 evalAst stack (AST.Symbol s asts) = case getVarInScope stack s of
   Nothing -> (Left ("Symbol '" ++ s ++
-      "'doesn't exist in the current or global scope"), stack)
+      "' doesn't exist in the current or global scope"), stack)
   Just (FunctionValue params ast Nothing) ->
     evalAst stack (FunctionValue params ast asts)
   Just value -> case asts of
