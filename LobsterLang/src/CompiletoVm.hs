@@ -443,29 +443,60 @@ getDefinedValue nbInstruction byteString inst = case (decodeOrFail byteString ::
     Compiler.Fnv {} -> getDefinedValue (nbInstruction - 1) (snd (getFnv (-1) remainingFile [])) (inst ++ fst (getFnv (-1) remainingFile []))
     _ -> (inst, byteString)
 
-getList :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
+getList :: Int -> BIN.ByteString -> [Vm.Instruction] ->
+    ([Vm.Instruction], BIN.ByteString)
 getList 0 byteString inst = (inst, byteString)
-getList nbInstruction byteString inst = case (decodeOrFail byteString :: DcdStrWord8) of
-  Left _ -> ([], byteString)
-  Right (remainingFile, _, opcode) -> case toEnum (fromIntegral opcode) of
-    PushI _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
+getList nbInstruction byteString inst =
+    case (decodeOrFail byteString :: DcdStrWord8) of
       Left _ -> ([], byteString)
-      Right (remfile, _, val) -> getList (nbInstruction - 1) remfile (inst ++ [Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int))])
-    PushB _ -> case (decodeOrFail remainingFile :: DcdStrWord8) of
+      Right (remainingFile, _, opcode) ->
+        getListFromInstruction nbInstruction byteString
+        remainingFile inst (toEnum (fromIntegral opcode))
+
+getListFromInstruction :: Int -> BIN.ByteString -> BIN.ByteString ->
+    [Vm.Instruction] -> Compiler.Instruction ->
+    ([Vm.Instruction], BIN.ByteString)
+getListFromInstruction nbInstruction byteString remainingFile inst (PushI _) =
+    case (decodeOrFail remainingFile :: DcdStrInt) of
+      Left _ -> ([], byteString)
+      Right (remfile, _, val) -> getList (nbInstruction - 1) remfile
+        (inst ++ [Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int))])
+getListFromInstruction nbInstruction byteString remainingFile inst (PushB _) =
+    case (decodeOrFail remainingFile :: DcdStrWord8) of
       Left _ -> (inst, byteString)
-      Right (remfile, _, 1) -> getList (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal True)])
-      Right (remfile, _, 0) -> getList (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal False)])
+      Right (remfile, _, 1) -> getList (nbInstruction - 1)
+        remfile (inst ++ [Vm.Push (BoolVal True)])
+      Right (remfile, _, 0) -> getList (nbInstruction - 1)
+        remfile (inst ++ [Vm.Push (BoolVal False)])
       Right (_, _, _) -> (inst, byteString)
-    Compiler.PushStr _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
+getListFromInstruction nbInstruction byteString remainingFile
+    inst (Compiler.PushStr _) =
+    case (decodeOrFail remainingFile :: DcdStrInt) of
       Left _ -> (inst, byteString)
-      Right (remfile, _, byteToRead) -> getList (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [Vm.Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
-    Compiler.PushSym _ _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
+      Right (remfile, _, byteToRead) -> getList (nbInstruction - 1)
+        (snd (getString (fromIntegral (byteToRead :: Int32) :: Int)
+        remfile [])) (inst ++ [Vm.Push (StringVal (fst (getString
+        (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
+getListFromInstruction nbInstruction byteString remainingFile
+    inst (Compiler.PushSym _ _) =
+    case (decodeOrFail remainingFile :: DcdStrInt) of
       Left _ -> (inst, byteString)
-      Right (remfile, _, byteToRead) -> getList (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [PushEnv (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))])
-    Compiler.PushList _ _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
+      Right (remfile, _, byteToRead) -> getList (nbInstruction - 1)
+        (snd (getString (fromIntegral (byteToRead :: Int32) :: Int)
+        remfile [])) (inst ++ [PushEnv (fst (getString (fromIntegral
+        (byteToRead :: Int32) :: Int) remfile []))])
+getListFromInstruction nbInstruction _ remainingFile
+    inst (Compiler.PushList _ _) =
+    case (decodeOrFail remainingFile :: DcdStrInt) of
       Left _ -> ([], remainingFile)
-      Right (remfile, _, lenList) -> getList (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
-    Compiler.PushArg _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
+      Right (remfile, _, lenList) -> getList (nbInstruction - 1)
+        (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile []))
+        (inst ++ fst (getList (fromIntegral (lenList :: Int32) :: Int)
+        remfile []) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+getListFromInstruction nbInstruction _ remainingFile
+    inst (Compiler.PushArg _) =
+    case (decodeOrFail remainingFile :: DcdStrInt) of
       Left _ -> ([], remainingFile)
-      Right (remfile, _, val) -> getList (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
-    _ -> (inst, byteString)
+      Right (remfile, _, val) -> getList (nbInstruction - 1) remfile
+        (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
+getListFromInstruction _ byteString _ inst _ = (inst, byteString)
