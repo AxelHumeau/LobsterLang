@@ -90,7 +90,7 @@ compileInfo filename list stack = checkCompileInfo
       Left _ -> exitWith (ExitFailure 84)
       Right value ->
         Compiler.compile
-          (map AstOptimizer.fromOptimised value)
+          (map AstOptimizer.fromOpti value)
           (filename ++ "o")
           True
 
