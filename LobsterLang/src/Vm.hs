@@ -220,7 +220,8 @@ makeOperation Div stack = case Stack.pop stack of
 makeOperation Mod stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
         (Just y, stack2) -> case (x, y) of
-            (IntVal a, IntVal b) -> Right (Stack.push stack2 (IntVal (a `mod` b)))
+            (IntVal a, IntVal b) ->
+                Right (Stack.push stack2 (IntVal (a `mod` b)))
             _ -> Left "Error: Mod needs two integer arguments"
         (Nothing, _) -> Left "Error : Mod need two arguments"
     (Nothing, _) -> Left "Error : Mod need two arguments"
@@ -261,49 +262,37 @@ makeOperation GreatEq stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : GreatEq need two arguments"
 makeOperation And stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
-        (Just y, stack2)
-            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
-            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Just y, stack2) -> Right (Stack.push stack2
+            (BoolVal (x == BoolVal True && y == BoolVal True)))
         (Nothing, _) -> Left "Error : And need two arguments"
     (Nothing, _) -> Left "Error : And need two arguments"
 makeOperation Or stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
-        (Just y, stack2)
-            | x == BoolVal True || y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
-            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Just y, stack2) -> Right (Stack.push stack2
+            (BoolVal (x == BoolVal True || y == BoolVal True)))
         (Nothing, _) -> Left "Error : Or need two arguments"
     (Nothing, _) -> Left "Error : Or need two arguments"
 makeOperation Xorb stack = case Stack.pop stack of
     (Just x, stack1) -> case Stack.pop stack1 of
-        (Just y, stack2)
-            | x == BoolVal True && y == BoolVal True -> Right (Stack.push stack2 (BoolVal True))
-            | x == BoolVal False && y == BoolVal False -> Right (Stack.push stack2 (BoolVal True))
-            | otherwise -> Right (Stack.push stack2 (BoolVal False))
+        (Just y, stack2) -> Right (Stack.push stack2 (BoolVal
+            ((x == BoolVal True && y == BoolVal False) || (x == BoolVal False
+            && y == BoolVal True))))
         (Nothing, _) -> Left "Error : XOrb need two arguments"
     (Nothing, _) -> Left "Error : XOrb need two arguments"
 makeOperation Not stack = case Stack.pop stack of
-    (Just x, stack1)
-        | x == BoolVal False -> Right (Stack.push stack1 (BoolVal True))
-        | otherwise -> Right (Stack.push stack1 (BoolVal False))
+    (Just x, stack1) ->
+        Right (Stack.push stack1 (BoolVal (x == BoolVal False)))
     (Nothing, _) -> Left "Error : Not need One arguments"
 makeOperation ToString stack = case Stack.pop stack of
     (Just (IntVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
-    (Just (BoolVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
-    (Just (CharVal x), stack1) -> Right (Stack.push stack1 (StringVal (show x)))
+    (Just (BoolVal x), stack1) ->
+        Right (Stack.push stack1 (StringVal (show x)))
+    (Just (CharVal x), stack1) ->
+        Right (Stack.push stack1 (StringVal (show x)))
     (Just (StringVal x), stack1) -> Right (Stack.push stack1 (StringVal x))
     (Just _, _) -> Left "Error : Cannot convert to string"
     (Nothing, _) -> Left "Error : ToString need One arguments"
-makeOperation Get stack = case Stack.pop stack of
-    (Just (StringVal s), stack1) -> case Stack.pop stack1 of
-        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (StringVal [s !! x]))
-        (Just _, _) -> Left "Error : Wrong arguments for Get"
-        (Nothing, _) -> Left "Error : Get need two arguments"
-    (Just (ListVal l), stack1) -> case Stack.pop stack1 of
-        (Just (IntVal x), stack2) -> Right (Stack.push stack2 (l !! x))
-        (Just _, _) -> Left "Error : Wrong arguments for Get"
-        (Nothing, _) -> Left "Error : Get need two arguments"
-    (Just _, _) -> Left "Error : Cannot Get on not a String nor List"
-    (Nothing, _) -> Left "Error : Get need two arguments"
+makeOperation Get stack = makeOperationGet (Stack.pop stack)
 makeOperation Append stack = case Stack.pop stack of
     (Just (ListVal l), stack1) -> case Stack.pop stack1 of
         (Just v, stack2) -> Right (Stack.push stack2 (ListVal (l ++ [v])))
@@ -312,15 +301,31 @@ makeOperation Append stack = case Stack.pop stack of
     (Nothing, _) -> Left "Error : Append need two arguments"
 makeOperation RmOcc stack = case Stack.pop stack of
     (Just (ListVal l), stack1) -> case Stack.pop stack1 of
-        (Just v, stack2) -> Right (Stack.push stack2 (ListVal (filter (/= v) l)))
+        (Just v, stack2) -> Right (Stack.push stack2
+            (ListVal (filter (/= v) l)))
         (Nothing, _) -> Left "Error : RmOcc need two arguments"
     (Just _, _) -> Left "Error : Cannot RmOcc on not a List"
     (Nothing, _) -> Left "Error : RmOcc need two arguments"
 makeOperation Len stack = case Stack.pop stack of
-    (Just (StringVal s), stack1) -> Right (Stack.push stack1 (IntVal (length s)))
+    (Just (StringVal s), stack1) ->
+        Right (Stack.push stack1 (IntVal (length s)))
     (Just (ListVal l), stack1) -> Right (Stack.push stack1 (IntVal (length l)))
     (Just _, _) -> Left "Error : Len no len"
     (Nothing, _) -> Left "Error : Len need one arguments"
+
+makeOperationGet :: (Maybe Value, Stack) -> Either String Stack
+makeOperationGet (Just (StringVal s), stack1) = case Stack.pop stack1 of
+    (Just (IntVal x), stack2) ->
+        Right (Stack.push stack2 (StringVal [s !! x]))
+    (Just _, _) -> Left "Error : Wrong arguments for Get"
+    (Nothing, _) -> Left "Error : Get need two arguments"
+makeOperationGet (Just (ListVal l), stack1) = case Stack.pop stack1 of
+    (Just (IntVal x), stack2) -> Right (Stack.push stack2 (l !! x))
+    (Just _, _) -> Left "Error : Wrong arguments for Get"
+    (Nothing, _) -> Left "Error : Get need two arguments"
+makeOperationGet (Just _, _) =
+    Left "Error : Cannot Get on not a String nor List"
+makeOperationGet (Nothing, _) = Left "Error : Get need two arguments"
 
 isBoolVal :: Maybe Value -> Bool
 isBoolVal (Just (BoolVal _)) = True
@@ -329,13 +334,13 @@ isBoolVal _ = False
 isInEnv :: String -> Int -> Env -> Maybe Value
 isInEnv _ _ [] = Nothing
 isInEnv s d ((name, val, depth):as)
-    | name == s && (depth == 0 || depth == d) = Just val
+    | name == s, depth `elem` [0, d] = Just val
     | otherwise = isInEnv s d as
 
 updateInEnv :: String -> Int -> Value -> Env -> Env
 updateInEnv _ _ _ [] = []
 updateInEnv s d nv ((name, val, depth):as)
-    | name == s && (depth == 0 || depth == d) = (name, nv, depth) : as
+    | name == s, depth `elem` [0, d] = (name, nv, depth) : as
     | otherwise = (name, val, depth) : updateInEnv s d nv as
 
 clearUntilDepth :: Env -> Int -> Env
@@ -351,27 +356,9 @@ createList n stack val = case Stack.pop stack of
     (Just x, stack1) -> createList (n - 1) stack1 (val ++ [x])
 
 exec :: Int -> Env -> Arg -> Inst -> Stack -> (Either String Value, Env)
-exec _ _ _ (Call : _) [] = (Left "Error: stack is empty 1", [])
-exec depth env arg (Call : xs) stack = case Stack.pop stack of
-        (Nothing, _) -> (Left "Error: stack is empty 2", env)
-        (Just (Op x), stack1)  -> case makeOperation x stack1 of
-               Left err -> (Left err, env)
-               Right newstack -> exec depth env arg xs newstack
-        (Just (Function body 0), stack1) -> case exec (depth + 1) env [] body [] of
-                (Left err, _) -> (Left err, env)
-                (Right val, env') -> exec depth (clearUntilDepth env' depth) arg xs (Stack.push stack1 val)
-        (Just (Function body nb), stack1) -> case Stack.pop stack1 of
-            (Just (IntVal nb'), stack2)
-                | nb' == 0 -> exec depth env arg xs (Stack.push stack2 (Function body nb))
-                | nb < nb' -> (Left "Error: too much arguments given", env)
-                | otherwise -> case Stack.pop stack2 of
-                    (Just v, stack3) -> exec depth env arg (Call:xs)
-                        (Stack.push
-                            (Stack.push stack3 (IntVal (nb' - 1)))
-                            (Function (Push v:PutArg:body) (nb - 1)))
-                    (Nothing, _) -> (Left "Error: stack is empty 3", env)
-            (_, _) -> (Left "Error: stack is invalid for a function call", env)
-        (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a ++ "stack : " ++ show stack), env)
+exec _ _ _ (Call : _) [] = (Left "Error: stack is empty", [])
+exec depth env arg (Call : xs) stack =
+    execCall depth env arg xs stack (Stack.pop stack)
 exec _ _ [] (PushArg _:_) _ = (Left "Error: no Arg", [])
 exec depth env arg (PushArg x:xs) stack
     | x < 0 = (Left "Error index out of range", env)
@@ -380,24 +367,27 @@ exec depth env arg (PushArg x:xs) stack
 exec depth env arg (PushList x:xs) stack
     | x < 0 = (Left "Error: index out of range", env)
     | x > length stack = (Left "Error: index out of range", env)
-    | otherwise = exec depth env arg xs (ListVal (snd (createList x stack [])) : (fst (createList x stack [])))
+    | otherwise = exec depth env arg xs (ListVal (snd (createList x stack []))
+        : fst (createList x stack []))
 exec _ [] _ (PushEnv _:_) _ = (Left "Error: no Env", [])
 exec depth env arg (PushEnv x:xs) stack =  case isInEnv x depth env of
-    Nothing -> (Left ("Error: not in environment " ++ x ++ " " ++ show depth), env)
+    Nothing -> (Left ("Error: not in environment " ++ x ++ " " ++ show depth),
+        env)
     Just (BoolVal b) -> exec depth env arg  (Push (BoolVal b):xs) stack
     Just (IntVal i) -> exec depth env arg  (Push (IntVal i):xs) stack
     Just (CharVal c) -> exec depth env arg  (Push (CharVal c):xs) stack
     Just (StringVal str) -> exec depth env arg  (Push (StringVal str):xs) stack
     Just (Op op) -> exec depth env arg (Push (Op op):xs) stack
-    Just (Function func nb) -> exec depth env arg (Push (Function func nb):xs) stack
+    Just (Function f nb) -> exec depth env arg (Push (Function f nb):xs) stack
     Just (ListVal list) -> exec depth env arg (Push (ListVal list):xs) stack
-exec depth env arg (Push val:xs) stack = exec depth env arg xs (Stack.push stack val)
+exec depth env arg (Push val:xs) stack =
+    exec depth env arg xs (Stack.push stack val)
 exec depth env arg (PutArg:xs) stack = case Stack.pop stack of
-    (Nothing, _) -> (Left "Error: stack is empty 4", env)
+    (Nothing, _) -> (Left "Error: stack is empty", env)
     (Just val, stack1) -> exec depth env (arg ++ [val]) xs stack1
 exec depth env arg (JumpIfFalse val:xs) stack
   | Prelude.null xs = (Left "Error: no jump possible", env)
-  | Prelude.null stack = (Left "Error: stack is empty 5", env)
+  | Prelude.null stack = (Left "Error: stack is empty", env)
   | val < 0 = (Left "Error: invalid jump value", env)
   | val > length xs = (Left "Error: invalid jump value", env)
   | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
@@ -405,7 +395,7 @@ exec depth env arg (JumpIfFalse val:xs) stack
   | otherwise = exec depth env arg (Prelude.drop val xs) stack
 exec depth env arg (JumpIfTrue val:xs) stack
   | Prelude.null xs = (Left "Error: no jump possible", env)
-  | Prelude.null stack = (Left "Error: stack is empty 6", env)
+  | Prelude.null stack = (Left "Error: stack is empty", env)
   | val < 0 = (Left "Error: invalid jump value", env)
   | val > length xs = (Left "Error: invalid jump value", env)
   | not (isBoolVal (Stack.top stack)) = (Left "Error: not bool", env)
@@ -425,3 +415,30 @@ exec _ env _ (Ret : _) stack = case Stack.top stack of
     Just x -> (Right x, env)
     Nothing -> (Left "Error: stack is empty", env)
 exec _ _ _ [] _ = (Left "list no instruction found", [])
+
+execCall :: Int -> Env -> Arg -> Inst -> Stack ->
+    (Maybe Value, Stack) -> (Either String Value, Env)
+execCall _ env _ _ _ (Nothing, _) =
+    (Left "Error: stack is empty", env)
+execCall d env arg xs _ (Just (Op x), s1) =
+    case makeOperation x s1 of
+       Left err -> (Left err, env)
+       Right news -> exec d env arg xs news
+execCall d env arg xs _ (Just (Function body 0), s1) =
+    case exec (d + 1) env [] body [] of
+        (Left err, _) -> (Left err, env)
+        (Right val, env') -> exec d (clearUntilDepth env' d)
+            arg xs (Stack.push s1 val)
+execCall d env arg xs _ (Just (Function body nb), s1) = case Stack.pop s1 of
+    (Just (IntVal 0), s2) -> exec d env arg xs
+        (Stack.push s2 (Function body nb))
+    (Just (IntVal nb'), s2)
+      | nb < nb' -> (Left "Error: too much arguments given", env)
+      | otherwise -> case Stack.pop s2 of
+        (Just v, s3) -> exec d env arg (Call:xs) (Stack.push (Stack.push
+          s3 (IntVal (nb' - 1))) (Function (Push v:PutArg:body) (nb - 1)))
+        (Nothing, _) -> (Left "Error: stack is empty", env)
+    (_, _) -> (Left "Error: stack is invalid for a function call", env)
+execCall _ env _ _ s  (Just a, _) =
+    (Left ("Error: not an Operation or a function " ++
+    show a ++ "stack : " ++ show s), env)
