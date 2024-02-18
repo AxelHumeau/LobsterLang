@@ -81,39 +81,13 @@ optimizeAst stack ((Call op asts) : xs) inF
       Left err -> Left err : optimizeAst stack xs inF
       Right asts' -> optimizeAst stack (Call op (map fromOpti asts') : xs) inF
 optimizeAst stack ((Cond condAst trueAst mFalseAst) : xs) inF
-  | not (isUnoptimizable condAst) = case optimizeAst stack [condAst] inF of
-      [Left err] -> Left err : optimizeAst stack xs inF
-      [Right (Result condAst')] ->
-        optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inF
-      [Right (Warning _ condAst')] ->
-        optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inF
-      _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
-  | not (isUnoptimizable trueAst) = case optimizeAst stack [trueAst] inF of
-      [Left err] -> Left err : optimizeAst stack xs inF
-      [Right (Result trueAst')] ->
-        optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inF
-      [Right (Warning _ trueAst')] ->
-        optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inF
-      _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
+  | not (isUnoptimizable condAst) =
+    optimiseCondCondAst stack condAst trueAst mFalseAst xs inF
+  | not (isUnoptimizable trueAst) =
+    optimiseCondTrueBody stack condAst trueAst mFalseAst xs inF
   | isJust mFalseAst && not (isUnoptimizable (fromJust mFalseAst)) =
-      case optimizeAst stack [fromJust mFalseAst] inF of
-        [Left err] -> Left err : optimizeAst stack xs inF
-        [Right (Result falseAst')] ->
-          optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inF
-        [Right (Warning _ falseAst')] ->
-          optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inF
-        _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
-  | otherwise = case condAst of
-      Boolean True ->
-        Right (Warning "Condition is always true" trueAst)
-          : optimizeAst stack xs inF
-      Boolean False ->
-        Right (Warning "Condition is always false"
-          (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst))
-          : optimizeAst stack xs inF
-      _ ->
-        Right (Result (Cond condAst trueAst mFalseAst))
-          : optimizeAst stack xs inF
+    optimiseCondFalseBody stack condAst trueAst mFalseAst xs inF
+  | otherwise = optimiseCond stack condAst trueAst mFalseAst xs inF
 optimizeAst stack (FunctionValue params ast Nothing : xs) inF =
   case optimizeAst stack [ast] True of
     [Left err] -> Left err : optimizeAst stack xs inF
@@ -125,46 +99,94 @@ optimizeAst stack (FunctionValue params ast Nothing : xs) inF =
         : optimizeAst stack xs inF
     _ -> shouldntHappen stack (FunctionValue params ast Nothing : xs) inF
 optimizeAst stack (FunctionValue params ast (Just asts) : xs) inF
-  | not (isUnoptimizable ast) = case optimizeAst stack [ast] True of
-      [Left err] -> Left err : optimizeAst stack xs inF
-      [Right (Result ast')] ->
-        optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inF
-      [Right (Warning _ ast')] ->
-        optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inF
-      _ ->
-        shouldntHappen
-          stack
-          (FunctionValue params ast (Just asts) : xs)
-          inF
+  | not (isUnoptimizable ast) = optimizeFuncBody stack ast asts xs inF params
   | not (foldr ((&&) . isUnoptimizable) True asts) =
-      case sequence (optimizeAst stack asts inF) of
-        Left err -> Left err : optimizeAst stack xs inF
-        Right asts' ->
-          optimizeAst
-            stack
-            (FunctionValue params ast (Just (map fromOpti asts')) : xs)
-            inF
+      optimizeFuncParams stack ast asts xs inF params
   | length params > length asts =
-      case evalAst stack (FunctionValue params ast (Just asts)) of
-        (Left err, _) ->
-          Left
-            (Error err (FunctionValue params ast (Just asts)))
-            : optimizeAst stack xs inF
-        (Right (Just ast'), stack') ->
-          Right (Result ast')
-            : optimizeAst stack' xs inF
-        (Right Nothing, _) ->
-          shouldntHappen
-            stack
-            (FunctionValue params ast (Just asts) : xs)
-            inF
+      optimizeCurring stack ast asts xs inF params
   | otherwise =
-      checkEvalReturnSame
-        stack
+      checkEvalReturnSame stack
         (FunctionValue params ast (Just asts) : xs)
-        (evalAst stack (FunctionValue params ast (Just asts)))
-        inF
+        (evalAst stack (FunctionValue params ast (Just asts))) inF
 optimizeAst _ [] _ = []
+
+optimizeFuncBody :: [ScopeMb] -> Ast -> [Ast] ->
+  [Ast] -> Bool -> [String] -> [Either AstError AstOptimised]
+optimizeFuncBody stack ast asts xs inF params =
+  case optimizeAst stack [ast] True of
+    [Left err] -> Left err : optimizeAst stack xs inF
+    [Right (Result ast')] ->
+      optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inF
+    [Right (Warning _ ast')] ->
+      optimizeAst stack (FunctionValue params ast' (Just asts) : xs) inF
+    _ -> shouldntHappen stack (FunctionValue params ast (Just asts) : xs) inF
+
+optimizeFuncParams :: [ScopeMb] -> Ast -> [Ast] ->
+  [Ast] -> Bool -> [String] -> [Either AstError AstOptimised]
+optimizeFuncParams stack ast asts xs inF params =
+  case sequence (optimizeAst stack asts inF) of
+        Left err -> Left err : optimizeAst stack xs inF
+        Right asts' -> optimizeAst stack
+          (FunctionValue params ast (Just (map fromOpti asts')) : xs) inF
+
+optimizeCurring :: [ScopeMb] -> Ast -> [Ast] ->
+  [Ast] -> Bool -> [String] -> [Either AstError AstOptimised]
+optimizeCurring stack ast asts xs inF params =
+  case evalAst stack (FunctionValue params ast (Just asts)) of
+    (Left err, _) ->
+      Left (Error err (FunctionValue params ast (Just asts)))
+        : optimizeAst stack xs inF
+    (Right (Just ast'), stack') ->
+      Right (Result ast') : optimizeAst stack' xs inF
+    (Right Nothing, _) ->
+      shouldntHappen stack
+        (FunctionValue params ast (Just asts) : xs) inF
+
+optimiseCondCondAst :: [ScopeMb] -> Ast -> Ast -> Maybe Ast ->
+  [Ast] -> Bool -> [Either AstError AstOptimised]
+optimiseCondCondAst stack condAst trueAst mFalseAst xs inF =
+  case optimizeAst stack [condAst] inF of
+    [Left err] -> Left err : optimizeAst stack xs inF
+    [Right (Result condAst')] ->
+      optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inF
+    [Right (Warning _ condAst')] ->
+      optimizeAst stack (Cond condAst' trueAst mFalseAst : xs) inF
+    _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
+
+optimiseCondTrueBody :: [ScopeMb] -> Ast -> Ast -> Maybe Ast ->
+  [Ast] -> Bool -> [Either AstError AstOptimised]
+optimiseCondTrueBody stack condAst trueAst mFalseAst xs inF =
+  case optimizeAst stack [trueAst] inF of
+    [Left err] -> Left err : optimizeAst stack xs inF
+    [Right (Result trueAst')] ->
+      optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inF
+    [Right (Warning _ trueAst')] ->
+      optimizeAst stack (Cond condAst trueAst' mFalseAst : xs) inF
+    _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
+
+optimiseCondFalseBody :: [ScopeMb] -> Ast -> Ast -> Maybe Ast ->
+  [Ast] -> Bool -> [Either AstError AstOptimised]
+optimiseCondFalseBody stack condAst trueAst mFalseAst xs inF =
+      case optimizeAst stack [fromJust mFalseAst] inF of
+        [Left err] -> Left err : optimizeAst stack xs inF
+        [Right (Result falseAst')] ->
+          optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inF
+        [Right (Warning _ falseAst')] ->
+          optimizeAst stack (Cond condAst trueAst (Just falseAst') : xs) inF
+        _ -> shouldntHappen stack (Cond condAst trueAst mFalseAst : xs) inF
+
+optimiseCond :: [ScopeMb] -> Ast -> Ast -> Maybe Ast ->
+  [Ast] -> Bool -> [Either AstError AstOptimised]
+optimiseCond stack condAst trueAst mFalseAst xs inF =
+  case condAst of
+    Boolean True -> Right (Warning "Condition is always true" trueAst)
+        : optimizeAst stack xs inF
+    Boolean False -> Right (Warning "Condition is always false"
+        (fromMaybe (Cond condAst trueAst mFalseAst) mFalseAst))
+        : optimizeAst stack xs inF
+    _ ->
+      Right (Result (Cond condAst trueAst mFalseAst)) :
+      optimizeAst stack xs inF
 
 -- | Check whether an `Ast` is optimizable
 isUnoptimizable :: Ast -> Bool
