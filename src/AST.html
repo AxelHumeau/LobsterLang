@@ -1,0 +1,41 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-
+-- EPITECH PROJECT, 2023
+-- GLaDOS
+-- File description:
+-- AST
+-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">AST</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier">Ast</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- | Abstract syntax tree for representing instructions</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">data</span><span> </span><span id="Ast"><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-var">Ast</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Define"><span class="annot"><a href="AST.html#Define"><span class="hs-identifier hs-var">Define</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span>
+</span><span id="line-12"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="Value"><span class="annot"><a href="AST.html#Value"><span class="hs-identifier hs-var">Value</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-13"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="Boolean"><span class="annot"><a href="AST.html#Boolean"><span class="hs-identifier hs-var">Boolean</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-14"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="String"><span class="annot"><a href="AST.html#String"><span class="hs-identifier hs-var">String</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-15"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="List"><span class="annot"><a href="AST.html#List"><span class="hs-identifier hs-var">List</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-16"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="Symbol"><span class="annot"><a href="AST.html#Symbol"><span class="hs-identifier hs-var">Symbol</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="Call"><span class="annot"><a href="AST.html#Call"><span class="hs-identifier hs-var">Call</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-18"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="FunctionValue"><span class="annot"><a href="AST.html#FunctionValue"><span class="hs-identifier hs-var">FunctionValue</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="Cond"><span class="annot"><a href="AST.html#Cond"><span class="hs-identifier hs-var">Cond</span></a></span></span><span> </span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span> </span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="AST.html#Ast"><span class="hs-identifier hs-type">Ast</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>        </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679064228"><span id="local-6989586621679064262"><span id="local-6989586621679064265"><span class="annot"><span class="annottext">Int -&gt; Ast -&gt; ShowS
+[Ast] -&gt; ShowS
+Ast -&gt; String
+(Int -&gt; Ast -&gt; ShowS)
+-&gt; (Ast -&gt; String) -&gt; ([Ast] -&gt; ShowS) -&gt; Show Ast
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; Ast -&gt; ShowS
+showsPrec :: Int -&gt; Ast -&gt; ShowS
+$cshow :: Ast -&gt; String
+show :: Ast -&gt; String
+$cshowList :: [Ast] -&gt; ShowS
+showList :: [Ast] -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679064270"><span id="local-6989586621679064294"><span class="annot"><span class="annottext">Ast -&gt; Ast -&gt; Bool
+(Ast -&gt; Ast -&gt; Bool) -&gt; (Ast -&gt; Ast -&gt; Bool) -&gt; Eq Ast
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Ast -&gt; Ast -&gt; Bool
+== :: Ast -&gt; Ast -&gt; Bool
+$c/= :: Ast -&gt; Ast -&gt; Bool
+/= :: Ast -&gt; Ast -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span></pre></body></html>

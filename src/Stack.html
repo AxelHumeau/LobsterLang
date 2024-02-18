@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-
+-- EPITECH PROJECT, 2023
+-- GLaDOS
+-- File description:
+-- Stack
+-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Stack</span><span class="hs-special">(</span><span class="annot"><a href="Stack.html#top"><span class="hs-identifier">top</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>             </span><span class="annot"><a href="Stack.html#push"><span class="hs-identifier">push</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>             </span><span class="annot"><a href="Stack.html#pop"><span class="hs-identifier">pop</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>             </span><span class="annot"><a href="Stack.html#seek"><span class="hs-identifier">seek</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>             </span><span class="annot"><a href="Stack.html#size"><span class="hs-identifier">size</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>             </span><span class="annot"><a href="Stack.html#clear"><span class="hs-identifier">clear</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- | Return the top of the stack</span></span><span>
+</span><span id="line-16"></span><span id="local-6989586621679065881"><span class="annot"><a href="Stack.html#top"><span class="hs-identifier hs-type">top</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065881"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679065881"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-17"></span><span id="top"><span class="annot"><span class="annottext">top :: forall a. [a] -&gt; Maybe a
+</span><a href="Stack.html#top"><span class="hs-identifier hs-var hs-var">top</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-18"></span><span class="annot"><a href="Stack.html#top"><span class="hs-identifier hs-var">top</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679065901"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065901"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span class="annot"><span class="annottext">[a]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065901"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- | Push a value onto the stack, return the new stack</span></span><span>
+</span><span id="line-21"></span><span id="local-6989586621679065884"><span class="annot"><a href="Stack.html#push"><span class="hs-identifier hs-type">push</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065884"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679065884"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065884"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-22"></span><span id="push"><span class="annot"><span class="annottext">push :: forall a. [a] -&gt; a -&gt; [a]
+</span><a href="Stack.html#push"><span class="hs-identifier hs-var hs-var">push</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span id="local-6989586621679065902"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065902"><span class="hs-identifier hs-var">el</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065902"><span class="hs-identifier hs-var">el</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-23"></span><span class="annot"><a href="Stack.html#push"><span class="hs-identifier hs-var">push</span></a></span><span> </span><span id="local-6989586621679065903"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065903"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621679065904"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065904"><span class="hs-identifier hs-var">el</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065904"><span class="hs-identifier hs-var">el</span></a></span><span class="annot"><span class="annottext">a -&gt; [a] -&gt; [a]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065903"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- | Remove the top of the stack, return a tuple containing</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- the old top and the new stack</span><span>
+</span><span id="line-27"></span><span id="local-6989586621679065886"><span class="annot"><a href="Stack.html#pop"><span class="hs-identifier hs-type">pop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065886"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679065886"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065886"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span></span><span>
+</span><span id="line-28"></span><span id="pop"><span class="annot"><span class="annottext">pop :: forall a. [a] -&gt; (Maybe a, [a])
+</span><a href="Stack.html#pop"><span class="hs-identifier hs-var hs-var">pop</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Stack.html#pop"><span class="hs-identifier hs-var">pop</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679065905"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065905"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679065906"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065906"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065905"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065906"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- | Return the first element of the stack validating the</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- function given as parameter</span><span>
+</span><span id="line-33"></span><span id="local-6989586621679065888"><span class="annot"><a href="Stack.html#seek"><span class="hs-identifier hs-type">seek</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679065888"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065888"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679065888"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-34"></span><span id="seek"><span class="annot"><span class="annottext">seek :: forall a. (a -&gt; Bool) -&gt; [a] -&gt; Maybe a
+</span><a href="Stack.html#seek"><span class="hs-identifier hs-var hs-var">seek</span></a></span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-35"></span><span class="annot"><a href="Stack.html#seek"><span class="hs-identifier hs-var">seek</span></a></span><span> </span><span id="local-6989586621679065907"><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679065907"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679065908"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065908"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679065909"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065909"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679065907"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065908"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679065908"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-36"></span><span>             </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; [a] -&gt; Maybe a
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; Maybe a
+</span><a href="Stack.html#seek"><span class="hs-identifier hs-var">seek</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679065907"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065909"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><span class="hs-comment">-- | Return the size of the stack</span></span><span>
+</span><span id="line-39"></span><span id="local-6989586621679065890"><span class="annot"><a href="Stack.html#size"><span class="hs-identifier hs-type">size</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065890"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-40"></span><span id="size"><span class="annot"><span class="annottext">size :: forall a. [a] -&gt; Int
+</span><a href="Stack.html#size"><span class="hs-identifier hs-var hs-var">size</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-41"></span><span class="annot"><a href="Stack.html#size"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679065913"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065913"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[a] -&gt; Int
+forall a. [a] -&gt; Int
+</span><a href="Stack.html#size"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679065913"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><span class="hs-comment">-- | Clear the stack by return an empty stack</span></span><span>
+</span><span id="line-44"></span><span id="local-6989586621679065893"><span class="annot"><a href="Stack.html#clear"><span class="hs-identifier hs-type">clear</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065893"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679065893"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-45"></span><span id="clear"><span class="annot"><span class="annottext">clear :: forall a. [a] -&gt; [a]
+</span><a href="Stack.html#clear"><span class="hs-identifier hs-var hs-var">clear</span></a></span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span></pre></body></html>
