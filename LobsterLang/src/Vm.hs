@@ -357,30 +357,8 @@ createList n stack val = case Stack.pop stack of
 
 exec :: Int -> Env -> Arg -> Inst -> Stack -> (Either String Value, Env)
 exec _ _ _ (Call : _) [] = (Left "Error: stack is empty", [])
-exec depth env arg (Call : xs) stack = case Stack.pop stack of
-        (Nothing, _) -> (Left "Error: stack is empty", env)
-        (Just (Op x), stack1)  -> case makeOperation x stack1 of
-               Left err -> (Left err, env)
-               Right newstack -> exec depth env arg xs newstack
-        (Just (Function body 0), stack1) ->
-            case exec (depth + 1) env [] body [] of
-                (Left err, _) -> (Left err, env)
-                (Right val, env') -> exec depth (clearUntilDepth env' depth)
-                    arg xs (Stack.push stack1 val)
-        (Just (Function body nb), stack1) -> case Stack.pop stack1 of
-            (Just (IntVal 0), stack2) -> exec depth env arg xs
-                    (Stack.push stack2 (Function body nb))
-            (Just (IntVal nb'), stack2)
-                | nb < nb' -> (Left "Error: too much arguments given", env)
-                | otherwise -> case Stack.pop stack2 of
-                    (Just v, stack3) -> exec depth env arg (Call:xs)
-                        (Stack.push
-                            (Stack.push stack3 (IntVal (nb' - 1)))
-                            (Function (Push v:PutArg:body) (nb - 1)))
-                    (Nothing, _) -> (Left "Error: stack is empty", env)
-            (_, _) -> (Left "Error: stack is invalid for a function call", env)
-        (Just a, _) -> (Left ("Error: not an Operation or a function " ++
-            show a ++ "stack : " ++ show stack), env)
+exec depth env arg (Call : xs) stack =
+    execCall depth env arg xs stack (Stack.pop stack)
 exec _ _ [] (PushArg _:_) _ = (Left "Error: no Arg", [])
 exec depth env arg (PushArg x:xs) stack
     | x < 0 = (Left "Error index out of range", env)
@@ -437,3 +415,30 @@ exec _ env _ (Ret : _) stack = case Stack.top stack of
     Just x -> (Right x, env)
     Nothing -> (Left "Error: stack is empty", env)
 exec _ _ _ [] _ = (Left "list no instruction found", [])
+
+execCall :: Int -> Env -> Arg -> Inst -> Stack ->
+    (Maybe Value, Stack) -> (Either String Value, Env)
+execCall _ env _ _ _ (Nothing, _) =
+    (Left "Error: stack is empty", env)
+execCall d env arg xs _ (Just (Op x), s1) =
+    case makeOperation x s1 of
+       Left err -> (Left err, env)
+       Right news -> exec d env arg xs news
+execCall d env arg xs _ (Just (Function body 0), s1) =
+    case exec (d + 1) env [] body [] of
+        (Left err, _) -> (Left err, env)
+        (Right val, env') -> exec d (clearUntilDepth env' d)
+            arg xs (Stack.push s1 val)
+execCall d env arg xs _ (Just (Function body nb), s1) = case Stack.pop s1 of
+    (Just (IntVal 0), s2) -> exec d env arg xs
+        (Stack.push s2 (Function body nb))
+    (Just (IntVal nb'), s2)
+      | nb < nb' -> (Left "Error: too much arguments given", env)
+      | otherwise -> case Stack.pop s2 of
+        (Just v, s3) -> exec d env arg (Call:xs) (Stack.push (Stack.push
+          s3 (IntVal (nb' - 1))) (Function (Push v:PutArg:body) (nb - 1)))
+        (Nothing, _) -> (Left "Error: stack is empty", env)
+    (_, _) -> (Left "Error: stack is invalid for a function call", env)
+execCall _ env _ _ s  (Just a, _) =
+    (Left ("Error: not an Operation or a function " ++
+    show a ++ "stack : " ++ show s), env)
