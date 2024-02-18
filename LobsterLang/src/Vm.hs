@@ -334,13 +334,13 @@ isBoolVal _ = False
 isInEnv :: String -> Int -> Env -> Maybe Value
 isInEnv _ _ [] = Nothing
 isInEnv s d ((name, val, depth):as)
-    | name == s && (depth == 0 || depth == d) = Just val
+    | name == s, depth `elem` [0, d] = Just val
     | otherwise = isInEnv s d as
 
 updateInEnv :: String -> Int -> Value -> Env -> Env
 updateInEnv _ _ _ [] = []
 updateInEnv s d nv ((name, val, depth):as)
-    | name == s && (depth == 0 || depth == d) = (name, nv, depth) : as
+    | name == s, depth `elem` [0, d] = (name, nv, depth) : as
     | otherwise = (name, val, depth) : updateInEnv s d nv as
 
 clearUntilDepth :: Env -> Int -> Env
@@ -362,12 +362,15 @@ exec depth env arg (Call : xs) stack = case Stack.pop stack of
         (Just (Op x), stack1)  -> case makeOperation x stack1 of
                Left err -> (Left err, env)
                Right newstack -> exec depth env arg xs newstack
-        (Just (Function body 0), stack1) -> case exec (depth + 1) env [] body [] of
+        (Just (Function body 0), stack1) ->
+            case exec (depth + 1) env [] body [] of
                 (Left err, _) -> (Left err, env)
-                (Right val, env') -> exec depth (clearUntilDepth env' depth) arg xs (Stack.push stack1 val)
+                (Right val, env') -> exec depth (clearUntilDepth env' depth)
+                    arg xs (Stack.push stack1 val)
         (Just (Function body nb), stack1) -> case Stack.pop stack1 of
+            (Just (IntVal 0), stack2) -> exec depth env arg xs
+                    (Stack.push stack2 (Function body nb))
             (Just (IntVal nb'), stack2)
-                | nb' == 0 -> exec depth env arg xs (Stack.push stack2 (Function body nb))
                 | nb < nb' -> (Left "Error: too much arguments given", env)
                 | otherwise -> case Stack.pop stack2 of
                     (Just v, stack3) -> exec depth env arg (Call:xs)
@@ -376,7 +379,8 @@ exec depth env arg (Call : xs) stack = case Stack.pop stack of
                             (Function (Push v:PutArg:body) (nb - 1)))
                     (Nothing, _) -> (Left "Error: stack is empty", env)
             (_, _) -> (Left "Error: stack is invalid for a function call", env)
-        (Just a, _) -> (Left ("Error: not an Operation or a function " ++ show a ++ "stack : " ++ show stack), env)
+        (Just a, _) -> (Left ("Error: not an Operation or a function " ++
+            show a ++ "stack : " ++ show stack), env)
 exec _ _ [] (PushArg _:_) _ = (Left "Error: no Arg", [])
 exec depth env arg (PushArg x:xs) stack
     | x < 0 = (Left "Error index out of range", env)
