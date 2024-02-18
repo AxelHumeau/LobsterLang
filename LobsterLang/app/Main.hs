@@ -104,21 +104,29 @@ compileFile file s = case runParser parseLobster (0, 0) s of
 
 checkArgs :: [String] -> IO ()
 checkArgs [] = print "Launch Interpreter" >> inputLoop []
-checkArgs ("-e" : file : _) = putStr "Result: " >> CompiletoVm.makeConvert file
-    >>= \instructions -> case fst (Vm.exec 0 [] [] instructions []) of
-      Left err -> print err
-      Right (IntVal res) -> print res
-      Right (BoolVal res) -> print res
-      Right (CharVal res) -> print res
-      Right (StringVal res) -> print res
-      Right (ListVal res) -> print res
-      Right (Op res) -> print res
-      Right (Function res _) -> print res
+checkArgs ("-e" : file : _) = putStr "Result: " >>
+  (either (\_ -> print "File doesn't exist or permission denied" >>
+  exitWith (ExitFailure 84)) return
+  =<< (try (CompiletoVm.makeConvert file) :: IO (Either SomeException Inst)))
+    >>= \instructions -> printResult (fst (Vm.exec 0 [] [] instructions []))
 checkArgs (file : _) =
   either
-    (\_ -> print "File doesn't exist" >> exitWith (ExitFailure 84))
-    (compileFile file)
+    (\_ -> print "File doesn't exist or permission denied" >>
+    exitWith (ExitFailure 84))
+    (\a -> either (\_ -> print "Permission denied on result file" >>
+      exitWith (ExitFailure 84)) return
+      =<< (try (compileFile file a) :: IO (Either SomeException ())))
     =<< (try (readFile file) :: IO (Either SomeException String))
+
+printResult :: Either String Value -> IO ()
+printResult (Left err) = print err
+printResult (Right (IntVal res)) = print res
+printResult (Right (BoolVal res)) = print res
+printResult (Right (CharVal res)) = print res
+printResult (Right (StringVal res)) = print res
+printResult (Right (ListVal res)) = print res
+printResult (Right (Op res)) = print res
+printResult (Right (Function res _)) = print res
 
 -- | Main
 main :: IO ()
