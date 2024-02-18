@@ -86,21 +86,7 @@ convertInstruction remainingFile inst (Compiler.JumpIfFalse _) =
 convertInstruction remainingFile inst (Compiler.Def {}) =
   case (decodeOrFail remainingFile :: DcdStrInt) of
     Left _ -> return []
-    Right (remfile, _, val) ->
-      convert reminfile (inst ++ symbolValue ++ symbolName)
-      where
-        remainAfterStr = snd (getString (fromIntegral
-            (val :: Int32) :: Int ) remfile [])
-        symbolName = [Vm.Define (fst (getString (fromIntegral
-            (val :: Int32) :: Int ) remfile []))]
-        nbinstructions = case (decodeOrFail remainAfterStr :: DcdStrInt) of
-          Left _ -> 0
-          Right (_, _, nbinst) -> (fromIntegral (nbinst :: Int32) :: Int)
-        fileAfternbinst = case (decodeOrFail remainAfterStr :: DcdStrInt) of
-          Left _ -> remainAfterStr
-          Right (rema, _, _) -> rema
-        symbolValue = fst (getDefinedValue nbinstructions fileAfternbinst [])
-        reminfile = snd (getDefinedValue nbinstructions fileAfternbinst [])
+    Right (remfile, _, val) -> convertDefIntruction remfile val inst
 convertInstruction remainingFile inst (Compiler.Fnv {}) =
   convert
     (snd (getFnv (-1) remainingFile []))
@@ -162,6 +148,18 @@ convertInstruction remainingFile inst (Compiler.PushList _ _) =
 convertInstruction remainingFile inst _ =
   convert remainingFile inst
 
+convertDefIntruction :: BIN.ByteString -> Int32 -> Inst -> IO Inst
+convertDefIntruction remfile val inst =
+  convert (snd (getDefinedValue nbInst fileAfterNbInst []))
+      (inst ++ fst (getDefinedValue nbInst fileAfterNbInst []) ++ [Vm.Define
+      (fst (getString (fromIntegral (val :: Int32) :: Int ) remfile []))])
+      where
+        afterStr = snd (getString (fromIntegral (val :: Int32) :: Int)
+          remfile [])
+        nbInst = getNbInst (decodeOrFail afterStr :: DcdStrInt)
+        fileAfterNbInst = getRemainingStrAfterInst
+          (decodeOrFail afterStr :: DcdStrInt) afterStr
+
 getString :: Int -> BIN.ByteString -> String -> (String, BIN.ByteString)
 getString 0 byteString str = (str, byteString)
 getString nbytes byteString s =
@@ -177,22 +175,25 @@ getFnv ::
   ([Vm.Instruction], BIN.ByteString)
 getFnv 0 byteString inst = (inst, byteString)
 -- start
-getFnv (-1) byteString inst =
-  case (decodeOrFail byteString :: DcdStrInt) of
+getFnv (-1) byteString inst = case (decodeOrFail byteString :: DcdStrInt) of
     Left _ -> (inst, byteString)
-    Right (nByteString, _, val) ->
-      getFnv 0 (snd (getInstructionFunc nbinstruction
-      byteStringafterNbInst []) ) (inst ++ [ Vm.Push (Vm.Function (fst
-      (getInstructionFunc nbinstruction byteStringafterNbInst [] ) )
+    Right (nByteString, _, val) -> getFnv 0 (snd (getInstructionFunc
+      nbinstruction byteStringafterNbInst []) ) (inst ++ [ Vm.Push (Vm.Function
+      (fst (getInstructionFunc nbinstruction byteStringafterNbInst []))
       (fromIntegral (val :: Int32) :: Int))])
       where
-        nbinstruction = case (decodeOrFail nByteString :: DcdStrInt) of
-          Left _ -> 0
-          Right (_, _, valu) -> (fromIntegral (valu :: Int32) :: Int)
-        byteStringafterNbInst = case (decodeOrFail nByteString :: DcdStrInt) of
-          Left _ -> nByteString
-          Right (afterNbInst, _, _) -> afterNbInst
+        nbinstruction = getNbInst (decodeOrFail nByteString :: DcdStrInt)
+        byteStringafterNbInst = getRemainingStrAfterInst
+          (decodeOrFail nByteString :: DcdStrInt) nByteString
 getFnv _ byteString inst = (inst, byteString)
+
+getNbInst :: DcdStrInt -> Int
+getNbInst (Left _) = 0
+getNbInst (Right (_, _, value)) = fromIntegral (value :: Int32) :: Int
+
+getRemainingStrAfterInst :: DcdStrInt -> BIN.ByteString -> BIN.ByteString
+getRemainingStrAfterInst (Left _) nByteString = nByteString
+getRemainingStrAfterInst (Right (afterNbInst, _, _)) _ = afterNbInst
 
 getArg :: Int -> BIN.ByteString -> [Vm.Instruction] ->
     ([Vm.Instruction], BIN.ByteString)
@@ -394,54 +395,130 @@ getInstFnvFromInst nbInstruction _ inst remainingFile Compiler.Call =
     getInstructionFunc (nbInstruction - 1) remainingFile (inst ++ [Vm.Call])
 getInstFnvFromInst _ byteString inst _ _ = (inst, byteString)
 
-getDefinedValue :: Int -> BIN.ByteString -> [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
+getDefinedValue :: Int -> BIN.ByteString ->
+  [Vm.Instruction] -> ([Vm.Instruction], BIN.ByteString)
 getDefinedValue 0 byteString inst = (inst, byteString)
-getDefinedValue nbInstruction byteString inst = case (decodeOrFail byteString :: DcdStrWord8) of
-  Left _ -> ([], byteString)
-  Right (remainingFile, _, opcode) -> case toEnum (fromIntegral opcode) of
-    PushI _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
-      Left _ -> ([], byteString)
-      Right (remfile, _, val) -> getDefinedValue (nbInstruction - 1) remfile (inst ++ [Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int))])
-    PushB _ -> case (decodeOrFail remainingFile :: DcdStrWord8) of
-      Left _ -> (inst, byteString)
-      Right (remfile, _, 1) -> getDefinedValue (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal True)])
-      Right (remfile, _, 0) -> getDefinedValue (nbInstruction - 1) remfile (inst ++ [Vm.Push (BoolVal False)])
-      Right (_, _, _) -> (inst, byteString)
-    Compiler.PushStr _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
-      Left _ -> (inst, byteString)
-      Right (remfile, _, byteToRead) -> getDefinedValue (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [Vm.Push (StringVal (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])))])
-    Compiler.PushSym _ _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
-      Left _ -> (inst, byteString)
-      Right (remfile, _, byteToRead) -> getDefinedValue (nbInstruction - 1) (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile [])) (inst ++ [PushEnv (fst (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))])
-    Compiler.PushList _ _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
-      Left _ -> ([], remainingFile)
-      Right (remfile, _, lenList) -> getDefinedValue (nbInstruction - 1) (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) (inst ++ (fst (getList (fromIntegral (lenList :: Int32) :: Int) remfile [])) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
-    Compiler.PushArg _ -> case (decodeOrFail remainingFile :: DcdStrInt) of
-      Left _ -> ([], remainingFile)
-      Right (remfile, _, val) -> getDefinedValue (nbInstruction - 1) remfile (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
-    Compiler.Add -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
-    Compiler.Sub -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Sub), Vm.Call])
-    Compiler.Mul -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Mul), Vm.Call])
-    Compiler.Div -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Div), Vm.Call])
-    Compiler.Mod -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Mod), Vm.Call])
-    Compiler.Eq -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Eq), Vm.Call])
-    Compiler.Less -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Less), Vm.Call])
-    Compiler.LessEq -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.LessEq), Vm.Call])
-    Compiler.Great -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Great), Vm.Call])
-    Compiler.GreatEq -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.GreatEq), Vm.Call])
-    Compiler.And -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.And), Vm.Call])
-    Compiler.Or -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Or), Vm.Call])
-    Compiler.XorB -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Xorb)])
-    Compiler.Not -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Not), Vm.Call])
-    Compiler.ToStr -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.ToString), Vm.Call])
-    Compiler.Apnd -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Append), Vm.Call])
-    Compiler.RemAllOcc -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.RmOcc), Vm.Call])
-    Compiler.Get -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Get), Vm.Call])
-    Compiler.Len -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
-    Compiler.PutArg -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.PutArg])
-    Compiler.Ret -> getDefinedValue (nbInstruction - 1) remainingFile (inst ++ [Vm.Ret])
-    Compiler.Fnv {} -> getDefinedValue (nbInstruction - 1) (snd (getFnv (-1) remainingFile [])) (inst ++ fst (getFnv (-1) remainingFile []))
-    _ -> (inst, byteString)
+getDefinedValue nbInstruction byteString inst =
+  case (decodeOrFail byteString :: DcdStrWord8) of
+    Left _ -> ([], byteString)
+    Right (remainingFile, _, opcode) ->
+      getDefValueFromInst nbInstruction byteString
+      remainingFile inst (toEnum (fromIntegral opcode))
+
+getDefValueFromInst :: Int ->
+  BIN.ByteString ->
+  BIN.ByteString ->
+  [Vm.Instruction] -> Compiler.Instruction ->
+  ([Vm.Instruction], BIN.ByteString)
+getDefValueFromInst nbInstruction byteString remainingFile inst (PushI _) =
+  case (decodeOrFail remainingFile :: DcdStrInt) of
+    Left _ -> ([], byteString)
+    Right (remfile, _, val) -> getDefinedValue (nbInstruction - 1) remfile
+      (inst ++ [Vm.Push (IntVal (fromIntegral (val :: Int32) :: Int))])
+getDefValueFromInst nbInstruction byteString remainingFile inst (PushB _) =
+  case (decodeOrFail remainingFile :: DcdStrWord8) of
+    Left _ -> (inst, byteString)
+    Right (remfile, _, 1) -> getDefinedValue (nbInstruction - 1) remfile
+      (inst ++ [Vm.Push (BoolVal True)])
+    Right (remfile, _, 0) -> getDefinedValue (nbInstruction - 1) remfile
+      (inst ++ [Vm.Push (BoolVal False)])
+    Right (_, _, _) -> (inst, byteString)
+getDefValueFromInst nbInstruction byteString remainingFile
+  inst (Compiler.PushStr _) =
+  case (decodeOrFail remainingFile :: DcdStrInt) of
+    Left _ -> (inst, byteString)
+    Right (remfile, _, byteToRead) -> getDefinedValue (nbInstruction - 1)
+      (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))
+      (inst ++ [Vm.Push (StringVal (fst (getString (fromIntegral
+      (byteToRead :: Int32) :: Int) remfile [])))])
+getDefValueFromInst nbInstruction byteString remainingFile
+  inst (Compiler.PushSym _ _) =
+  case (decodeOrFail remainingFile :: DcdStrInt) of
+    Left _ -> (inst, byteString)
+    Right (remfile, _, byteToRead) -> getDefinedValue (nbInstruction - 1)
+      (snd (getString (fromIntegral (byteToRead :: Int32) :: Int) remfile []))
+      (inst ++ [PushEnv (fst (getString (fromIntegral
+      (byteToRead :: Int32) :: Int) remfile []))])
+getDefValueFromInst nbInstruction _ remainingFile inst
+  (Compiler.PushList _ _) =
+  case (decodeOrFail remainingFile :: DcdStrInt) of
+    Left _ -> ([], remainingFile)
+    Right (remfile, _, lenList) -> getDefinedValue (nbInstruction - 1)
+      (snd (getList (fromIntegral (lenList :: Int32) :: Int) remfile []))
+      (inst ++ fst (getList (fromIntegral (lenList :: Int32) :: Int)
+      remfile []) ++ [Vm.PushList (fromIntegral (lenList :: Int32) :: Int)])
+getDefValueFromInst nbInstruction _ remainingFile inst (Compiler.PushArg _) =
+  case (decodeOrFail remainingFile :: DcdStrInt) of
+    Left _ -> ([], remainingFile)
+    Right (remfile, _, val) -> getDefinedValue (nbInstruction - 1) remfile
+      (inst ++ [Vm.PushArg (fromIntegral (val :: Int32) :: Int)])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Add =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Add), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Sub =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Sub), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Mul =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Mul), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Div =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Div), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Mod =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Mod), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Eq =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Eq), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Less =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Less), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.LessEq =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.LessEq), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Great =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Great), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.GreatEq =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.GreatEq), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.And =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.And), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Or =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Or), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.XorB =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Xorb)])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Not =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Not), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.ToStr =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.ToString), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Apnd =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Append), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.RemAllOcc =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.RmOcc), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Get =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Get), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Len =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Push (Op Vm.Len), Vm.Call])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.PutArg =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.PutArg])
+getDefValueFromInst nbInstruction _ remainingFile inst Compiler.Ret =
+  getDefinedValue (nbInstruction - 1) remainingFile
+  (inst ++ [Vm.Ret])
+getDefValueFromInst nbInstruction _ remainingFile inst (Compiler.Fnv {}) =
+  getDefinedValue (nbInstruction - 1) (snd (getFnv (-1) remainingFile []))
+  (inst ++ fst (getFnv (-1) remainingFile []))
+getDefValueFromInst _ byteString _ inst _ = (inst, byteString)
 
 getList :: Int -> BIN.ByteString -> [Vm.Instruction] ->
     ([Vm.Instruction], BIN.ByteString)
